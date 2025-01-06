@@ -35,7 +35,7 @@ export default function Login ({ navigation }: any) {
         secureTextEntry
       />
       <Button title="Login" onPress={handleLogin} />
-      <Button title="Go to Register" onPress={() => navigation.navigate("RegisterScreen")} />
+      <Button title="Don't have an account yet? Sign up" onPress={() => navigation.navigate("Signup")} />
     </View>
   );
 }
