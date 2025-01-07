@@ -1,6 +1,11 @@
 import React from "react";
 import AppNavigator from "./AppNavigator";
+import { UserProvider } from "./src/UserContext";
 
 export default function App() {
-  return <AppNavigator />;
+  return (
+    <UserProvider>
+      <AppNavigator />
+    </UserProvider>
+  );
 }
