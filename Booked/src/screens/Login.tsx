@@ -36,6 +36,7 @@ export default function Login ({ navigation }: any) {
       />
       <Button title="Login" onPress={handleLogin} />
       <Button title="Don't have an account yet? Sign up" onPress={() => navigation.navigate("Signup")} />
+      <Button title="Forgot Password?" onPress={() => navigation.navigate("ResetPassword")} />
     </View>
   );
 }
