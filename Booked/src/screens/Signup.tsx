@@ -15,6 +15,8 @@ export default function Signup ({ navigation }: any) {
       // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      console.log("User registered");
+      navigation.replace("Main"); 
 
       // Save user data to Firestore
       await setDoc(doc(db, "users", user.uid), {

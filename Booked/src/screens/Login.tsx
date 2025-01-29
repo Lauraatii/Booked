@@ -12,6 +12,7 @@ export default function Login ({ navigation }: any) {
       await signInWithEmailAndPassword(auth, email, password);
       console.log("User logged in");
       // Navigate to the app's main screen
+      navigation.replace("Main");
     } catch (error: any) {
       console.error("Login error: ", error.message);
     }
