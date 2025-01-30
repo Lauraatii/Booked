@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Button, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function ResetPassword({ navigation }: any) {
   const [email, setEmail] = useState("");
@@ -29,7 +30,7 @@ export default function ResetPassword({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={styles.container} entering={FadeInDown.duration(500)}>
       <Text style={styles.title}>Reset Password</Text>
       <TextInput
         style={styles.input}
@@ -38,14 +39,22 @@ export default function ResetPassword({ navigation }: any) {
         onChangeText={setEmail}
         keyboardType="email-address"
       />
-      <Button title="Send Reset Link" onPress={handlePasswordReset} />
-      <Button title="Back to Login" onPress={() => navigation.navigate("Login")} />
-    </View>
+      <TouchableOpacity style={styles.button} onPress={handlePasswordReset}>
+        <Text style={styles.buttonText}>Send Reset Link</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+        <Text style={styles.signupText}>Back to <Text style={styles.signupLink}>Login</Text></Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 16 },
-  title: { fontSize: 24, marginBottom: 16, textAlign: "center" },
-  input: { borderWidth: 1, padding: 8, marginBottom: 16, borderRadius: 8 },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#31C99E", padding: 20 },
+  title: { fontSize: 24, fontWeight: "bold", color: "#7DFFE3", textAlign: "center", marginBottom: 20 },
+  input: { width: "80%", padding: 12, borderRadius: 10, backgroundColor: "#fff", marginBottom: 15 },
+  button: { backgroundColor: "#26A480", padding: 12, borderRadius: 10, width: "80%", alignItems: "center" },
+  buttonText: { color: "#7DFFE3", fontSize: 18, fontWeight: "bold" },
+  signupText: { color: "#fff", fontSize: 14 },
+  signupLink: { color: "#7DFFE3", fontSize: 14, fontWeight: "bold" },
 });

@@ -12,6 +12,7 @@ import Home from "./src/screens/Home";
 import Profile from "./src/screens/Profile";
 import Groups from "./src/screens/Groups";
 import Events from "./src/screens/Events";
+import Onboarding from "./src/screens/onboarding/Onboarding";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -23,6 +24,7 @@ function AuthStack() {
     <Stack.Navigator>
       <Stack.Screen name="Login" component={Login} />
       <Stack.Screen name="Signup" component={Signup} />
+      <Stack.Screen name="Onboarding" component={Onboarding} />
       <Stack.Screen name="ResetPassword" component={ResetPassword} />
     </Stack.Navigator>
   );
