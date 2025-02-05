@@ -3,12 +3,14 @@ import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { globalStyles } from "../styles/globalStyles"; // Import global styles
+import { globalStyles } from "../styles/globalStyles"; 
 
 export default function Login({ navigation }: any) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [loading, setLoading] = useState(false);
+
 
   const validateFields = () => {
     let valid = true;
@@ -37,11 +39,14 @@ export default function Login({ navigation }: any) {
   const handleLogin = async () => {
     if (!validateFields()) return;
 
+    setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       navigation.replace("Main");
     } catch (error: any) {
       Alert.alert("Login Failed", error.message);
+    } finally {
+      setLoading(false);
     }
   };
 

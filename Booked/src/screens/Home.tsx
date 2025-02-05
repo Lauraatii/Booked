@@ -1,52 +1,72 @@
-import React from "react";
-import { View, Text, Button, StyleSheet, TouchableOpacity } from "react-native";
-import { useUser } from "../context/UserContext";
-import { signOut } from "firebase/auth";
-import { auth } from "../../firebaseConfig";
+import React, { useState } from "react";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
-export default function Home({ navigation }: any) {
-  const { user } = useUser();
+// Categories 
+const categories = [
+  { id: "1", name: "All" },
+  { id: "2", name: "Trips" },
+  { id: "3", name: "Parties" },
+  { id: "4", name: "Outdoor" },
+  { id: "5", name: "Dining" },
+  { id: "6", name: "Gaming" },
+  { id: "7", name: "Concerts" },
+];
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigation.replace("Login");
-    } catch (error: any) {
-      console.error("Logout error: ", error.message);
-    }
-  };
+// Mock AI-generated event data
+const events = [
+  { id: "1", title: "Sunset Rooftop Party 🎉", category: "Parties", location: "Copenhagen, Denmark" },
+  { id: "2", title: "Hiking in the Alps 🏔️", category: "Outdoor", location: "Switzerland" },
+  { id: "3", title: "Jazz Night 🎷", category: "Concerts", location: "New York, USA" },
+  { id: "4", title: "Gourmet Food Festival 🍽️", category: "Dining", location: "Paris, France" },
+];
+
+export default function Home() {
+  const [selectedCategory, setSelectedCategory] = useState("All");
+
+  // Filter events by category
+  const filteredEvents = selectedCategory === "All"
+    ? events
+    : events.filter(event => event.category === selectedCategory);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome, {user?.displayName || "Friend"}! 👋</Text>
-      <Text style={styles.subtitle}>What would you like to do today?</Text>
+      {/* Greeting */}
+      <Animated.View style={styles.header} entering={FadeInDown.duration(500)}>
+        <Text style={styles.title}>Hey there, ready for an event? 🎉</Text>
+      </Animated.View>
 
-      <View style={styles.buttonGroup}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate("Profile")}
-        >
-          <Text style={styles.buttonText}>View Profile</Text>
-        </TouchableOpacity>
+      {/* Category Filters */}
+      <FlatList
+        data={categories}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={styles.categoryButton}
+            onPress={() => setSelectedCategory(item.name)}
+          >
+            <Text style={styles.categoryText}>{item.name}</Text>
+          </TouchableOpacity>
+        )}
+        contentContainerStyle={styles.categoryList}
+      />
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate("Groups")}
-        >
-          <Text style={styles.buttonText}>Manage Groups</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate("Events")}
-        >
-          <Text style={styles.buttonText}>Upcoming Events</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
+      {/* Event Feed */}
+      <FlatList
+        data={filteredEvents}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <TouchableOpacity style={styles.eventCard}>
+            <View style={styles.eventDetails}>
+              <Text style={styles.eventTitle}>{item.title}</Text>
+              <Text style={styles.eventLocation}>{item.location}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+      />
     </View>
   );
 }
@@ -54,51 +74,56 @@ export default function Home({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#31C99E", // Primary background color
+    backgroundColor: "#fff",
+  },
+  header: {
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+    backgroundColor: "#31C99E",
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#7DFFE3", // Light teal text
-    marginBottom: 10,
+    color: "#fff",
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#D9FFF5", // Softer version of the text color
-    marginBottom: 20,
+  categoryList: {
+    paddingHorizontal: 10,
+    paddingVertical: 15,
   },
-  buttonGroup: {
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 20,
+  categoryButton: {
+    backgroundColor: "#D9FFF5",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginHorizontal: 5,
   },
-  button: {
-    backgroundColor: "#26A480", // Darker complementary teal
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    marginVertical: 8,
-    width: "80%",
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#7DFFE3",
-    fontSize: 18,
+  categoryText: {
+    fontSize: 14,
+    color: "#26A480",
     fontWeight: "bold",
   },
-  logoutButton: {
-    backgroundColor: "#E74C3C", // Red logout button
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+  eventCard: {
+    marginVertical: 10,
+    marginHorizontal: 15,
+    backgroundColor: "#fff",
     borderRadius: 10,
-    marginTop: 10,
+    padding: 15,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  logoutButtonText: {
-    color: "white",
+  eventDetails: {
+    padding: 10,
+  },
+  eventTitle: {
     fontSize: 16,
     fontWeight: "bold",
+  },
+  eventLocation: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 3,
   },
 });
