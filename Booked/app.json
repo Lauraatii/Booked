@@ -12,6 +12,11 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "extra": {
+      "reanimated": {
+        "disableReducedMotion": true
+      }
+    },
     "ios": {
       "supportsTablet": true
     },

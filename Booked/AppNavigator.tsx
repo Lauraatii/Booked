@@ -11,6 +11,7 @@ import ResetPassword from "./src/screens/ResetPassword";
 import Home from "./src/screens/Home";
 import Profile from "./src/screens/Profile";
 import Groups from "./src/screens/Groups";
+import GroupDetails from "./src/screens/GroupDetails";
 import Events from "./src/screens/Events";
 import Onboarding from "./src/screens/onboarding/Onboarding";
 
@@ -68,6 +69,7 @@ export default function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Auth" component={AuthStack} />
         <Stack.Screen name="Main" component={MainTabs} />
+        <Stack.Screen name="GroupDetails" component={GroupDetails} />
       </Stack.Navigator>
     </NavigationContainer>
   );
