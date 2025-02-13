@@ -15,27 +15,31 @@ import {
   Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { db, auth } from "../../firebaseConfig";
-import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import { doc, getDoc, updateDoc, arrayUnion, setDoc, collection, addDoc } from "firebase/firestore";
 import { useUser } from "../context/UserContext";
 import { Calendar } from "react-native-calendars";
-import * as CalendarAPI from "expo-calendar";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import * as Linking from "expo-linking";
+import * as Clipboard from "expo-clipboard";
 
 const { width, height } = Dimensions.get("window");
 
 export default function GroupDetails({ route, navigation }: any) {
   const { groupId } = route.params;
   const { user } = useUser();
-  const [group, setGroup] = useState<any>(null);
+  const [group, setGroup] = useState<any>({ name: "", members: [] });
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
   const [showAvailability, setShowAvailability] = useState(false);
   const [selectedDates, setSelectedDates] = useState({});
-  const [events, setEvents] = useState([]);
-  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [groupAvailability, setGroupAvailability] = useState({});
+  const [overlappingDates, setOverlappingDates] = useState<string[]>([]);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
 
   useEffect(() => {
     const fetchGroupDetails = async () => {
@@ -84,51 +88,6 @@ export default function GroupDetails({ route, navigation }: any) {
     }
   };
 
-  // Requests calendar access and fetch events
-  const requestCalendarAccess = async () => {
-    const { status } = await CalendarAPI.requestCalendarPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission Denied", "Enable calendar access in settings.");
-      return;
-    }
-    fetchCalendarEvents();
-  };
-
-  // Fetches calendar events from the device
-  const fetchCalendarEvents = async () => {
-    try {
-      setCalendarLoading(true);
-      const calendars = await CalendarAPI.getCalendarsAsync(CalendarAPI.EntityTypes.EVENT);
-      const defaultCalendar = calendars.find((cal) => cal.allowsModifications);
-      if (!defaultCalendar) {
-        Alert.alert("No Editable Calendar Found");
-        return;
-      }
-
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30);
-
-      const events = await CalendarAPI.getEventsAsync([defaultCalendar.id], startDate, endDate);
-
-      // Formats events to store in Firestore
-      const formattedEvents = events.map((event) => ({
-        title: event.title,
-        startDate: event.startDate.toISOString(),
-        endDate: event.endDate.toISOString(),
-      }));
-
-      // Stores events in Firestore
-      await setDoc(doc(db, "users", auth.currentUser.uid), { availability: formattedEvents }, { merge: true });
-      setEvents(formattedEvents);
-      Alert.alert("Success", "Calendar events synced!");
-    } catch (error) {
-      Alert.alert("Error", "Failed to fetch calendar events.");
-    } finally {
-      setCalendarLoading(false);
-    }
-  };
-
   // Shares availability with the group
   const handleShareAvailability = async () => {
     if (Object.keys(selectedDates).length === 0) {
@@ -159,38 +118,73 @@ export default function GroupDetails({ route, navigation }: any) {
     }
   };
 
-  // Renders chat messages
-  const renderMessage = ({ item }: any) => {
-    if (item.type === "availability") {
-      return (
-        <TouchableOpacity
-          style={styles.availabilityMessage}
-          onPress={() => setShowAvailability(true)}
-        >
-          <Ionicons name="calendar" size={20} color="#26A480" />
-          <Text style={styles.availabilityMessageText}>
-            {item.sender} shared their availability.
-          </Text>
-        </TouchableOpacity>
-      );
+  // Sync group calendars
+  const syncGroupCalendars = async () => {
+    try {
+      const groupRef = doc(db, "groups", groupId);
+      const groupSnap = await getDoc(groupRef);
+
+      if (groupSnap.exists()) {
+        const members = groupSnap.data().members || [];
+        const availability: Record<string, any> = {};
+
+        for (const member of members) {
+          const userRef = doc(db, "users", member);
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists() && userSnap.data().availability) {
+            availability[member] = userSnap.data().availability;
+          }
+        }
+
+        setGroupAvailability(availability);
+        setOverlappingDates(findOverlappingDates(availability));
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to sync group calendars.");
+    }
+  };
+
+  // Finds overlapping free dates
+  const findOverlappingDates = (availability: Record<string, any>) => {
+    const memberAvailabilities = Object.values(availability);
+    if (memberAvailabilities.length === 0) return [];
+
+    const dateCounts: Record<string, number> = {};
+
+    memberAvailabilities.forEach((availability) => {
+      availability.forEach((event: any) => {
+        const date = new Date(event.startDate).toISOString().split("T")[0];
+        dateCounts[date] = (dateCounts[date] || 0) + 1;
+      });
+    });
+
+    const overlappingDates = Object.keys(dateCounts).filter(
+      (date) => dateCounts[date] === memberAvailabilities.length
+    );
+
+    return overlappingDates;
+  };
+
+  // Renders overlapping dates
+  const renderOverlappingDates = () => {
+    if (overlappingDates.length === 0) {
+      return <Text style={styles.noDatesText}>No overlapping dates found.</Text>;
     }
 
     return (
-      <View
-        style={[
-          styles.messageContainer,
-          item.sender === user.email ? styles.myMessage : styles.otherMessage,
-        ]}
-      >
-        <Text style={styles.messageText}>{item.text}</Text>
-        <Text style={styles.messageTime}>
-          {new Date(item.timestamp).toLocaleTimeString()}
-        </Text>
+      <View style={styles.overlappingDatesContainer}>
+        <Text style={styles.overlappingDatesTitle}>Overlapping Dates:</Text>
+        {overlappingDates.map((date, index) => (
+          <Text key={index} style={styles.overlappingDate}>
+            {new Date(date).toLocaleDateString()}
+          </Text>
+        ))}
       </View>
     );
   };
 
-  // Renders availability calendar
+  //  Renders availability calendar
   const renderAvailabilityCalendar = () => (
     <View style={styles.availabilityContainer}>
       <Calendar
@@ -231,61 +225,86 @@ export default function GroupDetails({ route, navigation }: any) {
     </View>
   );
 
-  // Renders settings menu
-  const renderMenu = () => (
-    <Modal visible={showMenu} transparent animationType="fade">
-      <TouchableOpacity
-        style={styles.menuOverlay}
-        activeOpacity={1}
-        onPress={() => setShowMenu(false)}
+  // Renders chat messages
+  const renderMessage = ({ item }: any) => {
+    if (item.type === "availability") {
+      return (
+        <TouchableOpacity
+          style={styles.availabilityMessage}
+          onPress={() => setShowAvailability(true)}
+        >
+          <Ionicons name="calendar" size={20} color="#26A480" />
+          <Text style={styles.availabilityMessageText}>
+            {item.sender} shared their availability.
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View
+        style={[
+          styles.messageContainer,
+          item.sender === user.email ? styles.myMessage : styles.otherMessage,
+        ]}
       >
-        <View style={styles.menu}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setShowMenu(false);
-              Alert.alert("Info", "Invite members feature coming soon!");
-            }}
-          >
-            <Ionicons name="person-add" size={20} color="#555" />
-            <Text style={styles.menuItemText}>Invite Members</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setShowMenu(false);
-              Alert.alert("Info", "Edit group name feature coming soon!");
-            }}
-          >
-            <Ionicons name="create" size={20} color="#555" />
-            <Text style={styles.menuItemText}>Edit Group Name</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setShowMenu(false);
-              setShowAvailability(true);
-            }}
-          >
-            <Ionicons name="calendar" size={20} color="#555" />
-            <Text style={styles.menuItemText}>View Availability</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setShowMenu(false);
-              Alert.alert("Info", "Delete group feature coming soon!");
-            }}
-          >
-            <Ionicons name="trash" size={20} color="#FF6B6B" />
-            <Text style={[styles.menuItemText, { color: "#FF6B6B" }]}>
-              Delete Group
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
+        <Text style={styles.messageText}>{item.text}</Text>
+        <Text style={styles.messageTime}>
+          {new Date(item.timestamp).toLocaleTimeString()}
+        </Text>
+      </View>
+    );
+  };
+
+  // Invite via Link
+  const handleCopyInviteLink = () => {
+    const inviteLink = `${Linking.createURL("/groupDetails")}?groupId=${groupId}`;
+    Clipboard.setString(inviteLink); 
+    Alert.alert("Link copied", "The invite link has been copied to your clipboard!");
+  };
+
+
+  // Invite via Email
+  const handleInviteByEmail = async () => {
+    if (!inviteEmail.trim()) {
+      Alert.alert("Error", "Please enter an email address.");
+      return;
+    }
+
+    try {
+      const inviteRef = await addDoc(collection(db, "invitations"), {
+        groupId,
+        invitedUser: inviteEmail,
+        inviter: user.email,
+        status: "pending",
+        message: "Join my group!",
+      });
+
+      Alert.alert("Success", "Invitation sent via email!");
+    } catch (error) {
+      Alert.alert("Error", "Failed to send the invitation.");
+    }
+  };
+
+  // Edit Group Info
+  const handleEditGroupName = async () => {
+    if (!newGroupName.trim()) {
+      Alert.alert("Error", "Please enter a valid group name.");
+      return;
+    }
+
+    try {
+      const groupRef = doc(db, "groups", groupId);
+      await updateDoc(groupRef, {
+        name: newGroupName,
+      });
+      setGroup({ ...group, name: newGroupName });
+      setShowEditModal(false);
+      Alert.alert("Success", "Group name updated!");
+    } catch (error) {
+      Alert.alert("Error", "Failed to update group name.");
+    }
+  };
 
   if (loading) {
     return (
@@ -339,23 +358,89 @@ export default function GroupDetails({ route, navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* Sync Calendar Button */}
-        <TouchableOpacity onPress={requestCalendarAccess} style={styles.syncButton}>
-          {calendarLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="sync-outline" size={24} color="#fff" />
-              <Text style={styles.syncText}>Sync Calendar</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
         {/* Availability Modal */}
         {showAvailability && renderAvailabilityCalendar()}
 
+        {/* Overlapping Dates Section */}
+        {renderOverlappingDates()}
+
         {/* Settings Menu Modal */}
-        {renderMenu()}
+        <Modal visible={showMenu} transparent animationType="fade">
+          <TouchableOpacity
+            style={styles.menuOverlay}
+            activeOpacity={1}
+            onPress={() => setShowMenu(false)}
+          >
+            <View style={styles.menu}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleCopyInviteLink}
+              >
+                <Ionicons name="link" size={20} color="#555" />
+                <Text style={styles.menuItemText}>Copy Invite Link</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => setShowEditModal(true)}
+              >
+                <Ionicons name="create" size={20} color="#555" />
+                <Text style={styles.menuItemText}>Edit Group Name</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleInviteByEmail}
+              >
+                <Ionicons name="mail" size={20} color="#555" />
+                <Text style={styles.menuItemText}>Invite via Email</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={syncGroupCalendars}
+              >
+                <Ionicons name="sync" size={20} color="#555" />
+                <Text style={styles.menuItemText}>Sync Group Calendars</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => setShowMenu(false)}
+              >
+                <Ionicons name="close" size={20} color="#555" />
+                <Text style={styles.menuItemText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Edit Group Name Modal */}
+        {showEditModal && (
+          <Modal visible={showEditModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <TextInput
+                  style={styles.input}
+                  value={newGroupName}
+                  onChangeText={setNewGroupName}
+                  placeholder="New Group Name"
+                  placeholderTextColor="#888"
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => setShowEditModal(false)}
+                  >
+                    <Text style={styles.buttonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.createButton}
+                    onPress={handleEditGroupName}
+                  >
+                    <Text style={styles.buttonText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -513,19 +598,74 @@ const styles = StyleSheet.create({
     color: "#555",
     marginLeft: 10,
   },
-  syncButton: {
-    flexDirection: "row",
-    backgroundColor: "#26A480",
-    padding: 12,
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "center",
+  overlappingDatesContainer: {
+    padding: 16,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 12,
+    margin: 16,
+  },
+  overlappingDatesTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#26A480",
     marginBottom: 10,
   },
-  syncText: {
+  overlappingDate: {
+    fontSize: 16,
+    color: "#555",
+    marginBottom: 5,
+  },
+  noDatesText: {
+    fontSize: 16,
+    color: "#555",
+    textAlign: "center",
+    margin: 16,
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  modalContent: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  cancelButton: {
+    backgroundColor: "#ccc",
+    padding: 10,
+    borderRadius: 10,
+    flex: 1,
+    marginRight: 10,
+    alignItems: "center",
+  },
+  createButton: {
+    backgroundColor: "#26A480",
+    padding: 10,
+    borderRadius: 10,
+    flex: 1,
+    alignItems: "center",
+  },
+  buttonText: {
     color: "#fff",
     fontSize: 16,
-    marginLeft: 5,
+    fontWeight: "bold",
   },
 });

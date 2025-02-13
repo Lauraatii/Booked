@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "react-native-vector-icons";
+import * as Linking from "expo-linking";
 
 
 import Login from "./src/screens/Login";
@@ -14,6 +15,20 @@ import Groups from "./src/screens/Groups";
 import GroupDetails from "./src/screens/GroupDetails";
 import Events from "./src/screens/Events";
 import Onboarding from "./src/screens/onboarding/Onboarding";
+
+// Deep linking configuration
+const linking = {
+  prefixes: ['Booked://'], // Replace 'yourapp' with the scheme you defined in app.json
+  config: {
+    screens: {
+      Home: 'home',
+      Groups: 'groups',
+      Events: 'events',
+      Profile: 'profile',
+      GroupDetails: 'groupDetails', // Ensure this matches the path used for deep links
+    },
+  },
+};
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -65,7 +80,7 @@ function MainTabs() {
 // Root Navigator to Switch Between Authentication and Main App
 export default function AppNavigator() {
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Auth" component={AuthStack} />
         <Stack.Screen name="Main" component={MainTabs} />

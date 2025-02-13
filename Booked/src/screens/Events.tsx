@@ -50,11 +50,11 @@ export default function Events() {
 
       const events = await CalendarAPI.getEventsAsync([defaultCalendar.id], startDate, endDate);
 
-      // Format events to store in Firestore
+      // Formats events to store in Firestore
       const formattedEvents = events.map((event) => ({
         title: event.title,
-        startDate: event.startDate,
-        endDate: event.endDate,
+        startDate: event.startDate.toISOString(),
+        endDate: event.endDate.toISOString(),
       }));
 
       storeAvailabilityInFirestore(formattedEvents);
@@ -78,7 +78,7 @@ export default function Events() {
     }
   };
 
-  // Fetches user availability from Firestore
+  // Fetch user availability from Firestore
   const fetchUserAvailability = async () => {
     const user = auth.currentUser;
     if (!user) return;

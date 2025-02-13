@@ -5,15 +5,15 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  TextInput,
   Alert,
-  Image,
-  RefreshControl,
+  TextInput,
   ActivityIndicator,
+  RefreshControl,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { db } from "../../firebaseConfig";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where, doc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
 import { useUser } from "../context/UserContext";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
@@ -21,11 +21,13 @@ export default function Groups({ navigation }: any) {
   const { user } = useUser();
   const [groupName, setGroupName] = useState("");
   const [groups, setGroups] = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedSection, setSelectedSection] = useState("My Groups");
 
-  // Fetch groups where the current user is a member
+  // Fetch groups and invitations
   const fetchGroups = async () => {
     if (!user) return;
 
@@ -47,30 +49,49 @@ export default function Groups({ navigation }: any) {
     }
   };
 
+  const fetchInvitations = async () => {
+    if (!user) return;
+
+    try {
+      const invitationsRef = collection(db, "invitations");
+      const q = query(invitationsRef, where("invitedUser", "==", user.uid));
+      const querySnapshot = await getDocs(q);
+
+      const invitationsData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setInvitations(invitationsData);
+    } catch (error) {
+      Alert.alert("Error", "Failed to fetch invitations.");
+    }
+  };
+
   useEffect(() => {
     fetchGroups();
+    fetchInvitations();
   }, [user]);
 
-  // Creates a new group
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchGroups();
+    fetchInvitations();
+  };
+
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
       Alert.alert("Error", "Please enter a group name.");
       return;
     }
-  
-    if (!user || !user.uid) {
-      Alert.alert("Error", "User not authenticated. Please log in.");
-      return;
-    }
-  
+
     try {
       const groupRef = await addDoc(collection(db, "groups"), {
         name: groupName,
-        members: [user.uid], // Adds the creator as the first member
+        members: [user.uid],
         events: [],
         createdAt: new Date(),
       });
-  
+
       setGroups((prev) => [
         ...prev,
         { id: groupRef.id, name: groupName, members: [user.uid], events: [] },
@@ -79,15 +100,28 @@ export default function Groups({ navigation }: any) {
       setIsCreatingGroup(false);
       Alert.alert("Success", "Group created successfully!");
     } catch (error) {
-      console.error("Error creating group:", error); 
-      Alert.alert("Error", "Failed to create group. Please try again.");
+      Alert.alert("Error", "Failed to create group.");
     }
   };
 
-  // Pull-to-refresh
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchGroups();
+  // invitation acceptance or decline
+  const handleInvitationResponse = async (invitationId: string, accept: boolean) => {
+    try {
+      const invitationRef = doc(db, "invitations", invitationId);
+      const invitationData = (await getDoc(invitationRef)).data();
+
+      if (accept) {
+        await updateDoc(doc(db, "groups", invitationData.groupId), {
+          members: arrayUnion(user.uid),
+        });
+        Alert.alert("Success", "Invitation accepted!");
+      }
+
+      await updateDoc(invitationRef, { status: accept ? "accepted" : "declined" });
+      fetchInvitations();
+    } catch (error) {
+      Alert.alert("Error", "Failed to respond to invitation.");
+    }
   };
 
   // Render each group item
@@ -103,23 +137,84 @@ export default function Groups({ navigation }: any) {
     </TouchableOpacity>
   );
 
+  // Renders each invitation item
+  const renderInvitationItem = ({ item }: any) => (
+    <View style={styles.invitationCard}>
+      <Text style={styles.invitationText}>{item.groupName}</Text>
+      <Text style={styles.invitationDetails}>
+        Invited by: {item.inviter} | {item.message}
+      </Text>
+      <View style={styles.invitationButtons}>
+        <TouchableOpacity
+          style={styles.acceptButton}
+          onPress={() => handleInvitationResponse(item.id, true)}
+        >
+          <Text style={styles.buttonText}>Accept</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.declineButton}
+          onPress={() => handleInvitationResponse(item.id, false)}
+        >
+          <Text style={styles.buttonText}>Decline</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#7DFFE3" />
+        <ActivityIndicator size="large" color="#26A480" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Your Groups</Text>
-        <TouchableOpacity onPress={() => setIsCreatingGroup(true)}>
-          <Ionicons name="add-circle" size={32} color="#7DFFE3" />
+      {/* Section Selection */}
+      <View style={styles.sectionSelector}>
+        <TouchableOpacity
+          style={[
+            styles.sectionButton,
+            selectedSection === "My Groups" && styles.sectionButtonActive,
+          ]}
+          onPress={() => setSelectedSection("My Groups")}
+        >
+          <Text
+            style={[
+              styles.sectionText,
+              selectedSection === "My Groups" && styles.sectionTextActive,
+            ]}
+          >
+            My Groups
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.sectionButton,
+            selectedSection === "Invitations" && styles.sectionButtonActive,
+          ]}
+          onPress={() => setSelectedSection("Invitations")}
+        >
+          <Text
+            style={[
+              styles.sectionText,
+              selectedSection === "Invitations" && styles.sectionTextActive,
+            ]}
+          >
+            Invitations
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* "Create Group" Button */}
+      <TouchableOpacity
+        style={styles.createGroupButton}
+        onPress={() => setIsCreatingGroup(true)}
+      >
+        <Ionicons name="add-circle" size={32} color="#fff" />
+        <Text style={styles.createGroupText}>Create a Group</Text>
+      </TouchableOpacity>
 
       {/* Group Creation Modal */}
       {isCreatingGroup && (
@@ -154,25 +249,39 @@ export default function Groups({ navigation }: any) {
         </Animated.View>
       )}
 
-      {/* Group List */}
-      <FlatList
-        data={groups}
-        keyExtractor={(item) => item.id}
-        renderItem={renderGroupItem}
-        contentContainerStyle={styles.groupList}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Image
-              // source={require("../../../assets/empty-groups.png")}
-              style={styles.emptyImage}
-            />
-            <Text style={styles.emptyText}>No groups yet. Create one!</Text>
+      {/* Render selected section content */}
+      {selectedSection === "My Groups" ? (
+        <>
+          {/* Group List */}
+          <FlatList
+            data={groups}
+            keyExtractor={(item) => item.id}
+            renderItem={renderGroupItem}
+            contentContainerStyle={styles.groupList}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No groups yet. Create one!</Text>
+              </View>
+            }
+          />
+        </>
+      ) : (
+        <>
+          {/* Invitations Section */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Group Invitations</Text>
           </View>
-        }
-      />
+          <FlatList
+            data={invitations}
+            keyExtractor={(item) => item.id}
+            renderItem={renderInvitationItem}
+            contentContainerStyle={styles.invitationList}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -180,43 +289,63 @@ export default function Groups({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#31C99E",
+    backgroundColor: "#F7F8F9",
     padding: 20,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#31C99E",
+    backgroundColor: "#F7F8F9",
   },
-  header: {
+  sectionSelector: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-around",
+    marginVertical: 10,
+  },
+  sectionButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: "#E0E0E0",
+  },
+  sectionButtonActive: { backgroundColor: "#26A480" },
+  sectionText: { fontSize: 16, color: "#26A480", fontWeight: "bold" },
+  sectionTextActive: { color: "#fff" },
+  createGroupButton: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#7DFFE3",
-  },
-  groupList: {
-    paddingBottom: 20,
-  },
-  groupCard: {
     backgroundColor: "#26A480",
     padding: 15,
     borderRadius: 10,
-    marginBottom: 10,
+    marginBottom: 20,
+    justifyContent: "center",
+  },
+  createGroupText: {
+    fontSize: 18,
+    color: "#fff",
+    marginLeft: 10,
+  },
+  groupCard: {
+    marginHorizontal: 20,
+    marginVertical: 8,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   groupName: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#333",
   },
   groupMembers: {
     fontSize: 14,
-    color: "#D9FFF5",
+    color: "#777",
   },
   modalOverlay: {
     position: "absolute",
@@ -254,7 +383,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   cancelButton: {
-    backgroundColor: "#888",
+    backgroundColor: "#ccc",
     padding: 10,
     borderRadius: 10,
     flex: 1,
@@ -262,7 +391,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   createButton: {
-    backgroundColor: "#31C99E",
+    backgroundColor: "#26A480",
     padding: 10,
     borderRadius: 10,
     flex: 1,
@@ -278,14 +407,64 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  emptyImage: {
-    width: 150,
-    height: 150,
-    marginBottom: 20,
-  },
   emptyText: {
     fontSize: 18,
-    color: "#7DFFE3",
+    color: "#26A480",
     textAlign: "center",
+  },
+  invitationList: {
+    paddingBottom: 20,
+  },
+  invitationCard: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  invitationText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  invitationDetails: {
+    fontSize: 14,
+    color: "#777",
+  },
+  invitationButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  acceptButton: {
+    backgroundColor: "#26A480",
+    padding: 10,
+    borderRadius: 10,
+    flex: 1,
+    marginRight: 10,
+    alignItems: "center",
+  },
+  declineButton: {
+    backgroundColor: "#FF6B6B",
+    padding: 10,
+    borderRadius: 10,
+    flex: 1,
+    alignItems: "center",
+  },
+  groupList: {
+    marginTop: 20,
+  },
+  sectionHeader: {
+    marginBottom: 10,
+    paddingLeft: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
   },
 });
