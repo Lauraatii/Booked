@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { db } from "../../firebaseConfig";
-import { doc, getDoc, updateDoc, arrayUnion, setDoc, collection, addDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, arrayUnion, setDoc, collection, addDoc, query, where, getDocs } from "firebase/firestore";
 import { useUser } from "../context/UserContext";
 import { Calendar } from "react-native-calendars";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -40,6 +40,8 @@ export default function GroupDetails({ route, navigation }: any) {
   const [newGroupName, setNewGroupName] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchGroupDetails = async () => {
@@ -184,47 +186,6 @@ export default function GroupDetails({ route, navigation }: any) {
     );
   };
 
-  //  Renders availability calendar
-  const renderAvailabilityCalendar = () => (
-    <View style={styles.availabilityContainer}>
-      <Calendar
-        onDayPress={(day) => {
-          const updatedDates = { ...selectedDates };
-          if (updatedDates[day.dateString]) {
-            delete updatedDates[day.dateString];
-          } else {
-            updatedDates[day.dateString] = { selected: true, selectedColor: "#26A480" };
-          }
-          setSelectedDates(updatedDates);
-        }}
-        markedDates={selectedDates}
-        theme={{
-          backgroundColor: "#fff",
-          calendarBackground: "#fff",
-          textSectionTitleColor: "#555",
-          selectedDayBackgroundColor: "#26A480",
-          selectedDayTextColor: "#fff",
-          todayTextColor: "#26A480",
-          dayTextColor: "#555",
-          textDisabledColor: "#ccc",
-          arrowColor: "#26A480",
-        }}
-      />
-      <TouchableOpacity
-        style={styles.shareButton}
-        onPress={handleShareAvailability}
-      >
-        <Text style={styles.shareButtonText}>Share Availability</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.closeButton}
-        onPress={() => setShowAvailability(false)}
-      >
-        <Ionicons name="close" size={24} color="#555" />
-      </TouchableOpacity>
-    </View>
-  );
-
   // Renders chat messages
   const renderMessage = ({ item }: any) => {
     if (item.type === "availability") {
@@ -262,7 +223,6 @@ export default function GroupDetails({ route, navigation }: any) {
     Clipboard.setString(inviteLink); 
     Alert.alert("Link copied", "The invite link has been copied to your clipboard!");
   };
-
 
   // Invite via Email
   const handleInviteByEmail = async () => {
@@ -306,6 +266,45 @@ export default function GroupDetails({ route, navigation }: any) {
     }
   };
 
+  // Search for users to add to the group
+  const handleSearchUser = async () => {
+    if (!searchQuery.trim()) return;
+
+    try {
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", searchQuery));
+      const querySnapshot = await getDocs(q);
+
+      const results = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        email: doc.data().email,
+      }));
+
+      setSearchResults(results);
+    } catch (error) {
+      Alert.alert("Error", "Failed to search users.");
+    }
+  };
+
+  // Add selected user to the group
+  const handleAddMember = async (userId: string) => {
+    try {
+      const groupRef = doc(db, "groups", groupId);
+      await updateDoc(groupRef, {
+        members: arrayUnion(userId),
+      });
+
+      setGroup((prevGroup) => ({
+        ...prevGroup,
+        members: [...prevGroup.members, userId],
+      }));
+
+      Alert.alert("Success", "User added to the group!");
+    } catch (error) {
+      Alert.alert("Error", "Failed to add member.");
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -334,6 +333,39 @@ export default function GroupDetails({ route, navigation }: any) {
             <Ionicons name="ellipsis-vertical" size={24} color="#26A480" />
           </TouchableOpacity>
         </View>
+
+        {/* Search for Users */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for a user"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          <TouchableOpacity onPress={handleSearchUser} style={styles.searchButton}>
+            <Ionicons name="search" size={20} color="#555" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Display Search Results */}
+        {searchResults.length > 0 && (
+          <FlatList
+            data={searchResults}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.searchResultItem}>
+                <Text style={styles.searchResultText}>{item.email}</Text>
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => handleAddMember(item.id)}
+                >
+                  <Text style={styles.addButtonText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            style={styles.searchResultsContainer}
+          />
+        )}
 
         {/* Chat Section */}
         <FlatList
@@ -668,4 +700,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+  },
+  searchButton: {
+    padding: 10,
+  },
+  searchResultsContainer: {
+    padding: 10,
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 10,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  searchResultText: {
+    fontSize: 16,
+    color: "#555",
+  },
+  addButton: {
+    backgroundColor: "#26A480",
+    padding: 8,
+    borderRadius: 10,
+  },
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
 });
+function renderAvailabilityCalendar(): React.ReactNode {
+  throw new Error("Function not implemented.");
+}
+
