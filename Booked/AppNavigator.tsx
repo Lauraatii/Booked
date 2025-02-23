@@ -10,7 +10,8 @@ import Login from "./src/screens/Login";
 import Signup from "./src/screens/Signup";
 import ResetPassword from "./src/screens/ResetPassword";
 import Home from "./src/screens/Home";
-import Profile from "./src/screens/Profile";
+import Profile from "./src/screens/profile/Profile";
+import EditProfile from "./src/screens/profile/EditProfile";
 import Groups from "./src/screens/Groups";
 import GroupDetails from "./src/screens/GroupDetails";
 import Events from "./src/screens/Events";
@@ -18,14 +19,15 @@ import Onboarding from "./src/screens/onboarding/Onboarding";
 
 // Deep linking configuration
 const linking = {
-  prefixes: ['Booked://'], // Replace 'yourapp' with the scheme you defined in app.json
+  prefixes: ['Booked://'],
   config: {
     screens: {
       Home: 'home',
       Groups: 'groups',
       Events: 'events',
       Profile: 'profile',
-      GroupDetails: 'groupDetails', // Ensure this matches the path used for deep links
+      GroupDetails: 'groupDetails', 
+      EditProfile: 'editProfile',
     },
   },
 };
@@ -57,7 +59,7 @@ function MainTabs() {
             iconName = "home";
           } else if (route.name === "Groups") {
             iconName = "people";
-          } else if (route.name === "Events") {
+          } else if (route.name === "My calendar") {
             iconName = "calendar";
           } else if (route.name === "Profile") {
             iconName = "person";
@@ -65,13 +67,13 @@ function MainTabs() {
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: "#31C99E",
-        tabBarInactiveTintColor: "#D9FFF5",
+        tabBarInactiveTintColor: "000",
         tabBarStyle: { backgroundColor: "#FFFFFF", borderTopWidth: 0 },
       })}
     >
       <Tab.Screen name="Home" component={Home} />
       <Tab.Screen name="Groups" component={Groups} />
-      <Tab.Screen name="Events" component={Events} />
+      <Tab.Screen name="My calendar" component={Events} />
       <Tab.Screen name="Profile" component={Profile} />
     </Tab.Navigator>
   );
@@ -85,6 +87,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Auth" component={AuthStack} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="GroupDetails" component={GroupDetails} />
+        <Stack.Screen name="EditProfile" component={EditProfile} />
       </Stack.Navigator>
     </NavigationContainer>
   );
