@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, View, Text, StyleSheet, Button, Image, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import {
+  Alert,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { auth } from '../../../firebaseConfig';
 import { signOut } from 'firebase/auth';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const ProfileScreen = ({ navigation }) => {
   const [userData, setUserData] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const calculateAge = (birthday) => {
     const birthDate = new Date(birthday);
@@ -34,6 +46,8 @@ const ProfileScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -62,49 +76,95 @@ const ProfileScreen = ({ navigation }) => {
     setIsModalVisible(!isModalVisible);
   };
 
+  const navigateToSettings = () => {
+    navigation.navigate('Settings'); // Placeholder for now
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#31C99E" />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.scrollView}>
+    <LinearGradient colors={['#f0f0f0', '#e0e0e0']} style={styles.gradient}>
+      <ScrollView contentContainerStyle={styles.scrollView}>
+        {/* Settings Icon in Top-Right Corner */}
+        <TouchableOpacity style={styles.settingsIcon} onPress={navigateToSettings}>
+          <Icon name="cog" size={24} color="#333" />
+        </TouchableOpacity>
+
+        <View style={styles.container}>
+          <TouchableOpacity onPress={toggleModal}>
+            <Image
+              source={
+                userData?.profilePicture
+                  ? { uri: userData.profilePicture }
+                  : require('../../../assets/default-avatar.png')
+              }
+              style={styles.profilePic}
+              onError={() => setUserData({ ...userData, profilePicture: '' })}
+            />
+          </TouchableOpacity>
+
+          <Text style={styles.nameAge}>
+            {userData?.name} {userData?.birthday && `, ${calculateAge(userData.birthday)}`}
+          </Text>
+
+          <View style={styles.aboutMeCard}>
+            <Text style={styles.infoTitle}>About Me</Text>
+            <Text style={styles.infoText}>{userData?.bio || 'No bio available.'}</Text>
+          </View>
+
+          <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditProfile')}>
+            <Icon name="pencil" size={20} color="#fff" />
+            <Text style={styles.buttonText}>Edit Profile</Text>
+          </TouchableOpacity>
+
+          {/* Simple Sign Out Text Link */}
+          <TouchableOpacity onPress={handleSignOut}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* Modal for Full-Screen Profile Picture */}
       <Modal animationType="fade" transparent visible={isModalVisible} onRequestClose={toggleModal}>
         <View style={styles.modalView}>
           <TouchableOpacity style={styles.modalCloseButton} onPress={toggleModal}>
             <Icon name="close" size={24} color="#fff" />
           </TouchableOpacity>
-          <Image source={{ uri: userData?.profilePicture || require('../../../assets/default-avatar.png') }} style={styles.modalImage} resizeMode="contain" />
+          <Image
+            source={
+              userData?.profilePicture
+                ? { uri: userData.profilePicture }
+                : require('../../../assets/default-avatar.png')
+            }
+            style={styles.modalImage}
+            resizeMode="contain"
+            onError={() => setUserData({ ...userData, profilePicture: '' })}
+          />
         </View>
       </Modal>
-
-      <View style={styles.container}>
-        <TouchableOpacity onPress={toggleModal}>
-          <Image source={{ uri: userData?.profilePicture || require('../../../assets/default-avatar.png') }} style={styles.profilePic} />
-        </TouchableOpacity>
-        <Text style={styles.nameAge}>{userData?.name} {userData?.birthday && `, ${calculateAge(userData.birthday)}`}</Text>
-
-        <View style={styles.aboutMeCard}>
-          <Text style={styles.infoTitle}>About</Text>
-          <Text style={styles.infoText}>{userData?.bio}</Text>
-        </View>
-
-        <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditProfile')}>
-          <Text style={styles.buttonText}>Edit Profile</Text>
-        </TouchableOpacity>
-
-        <Button title="Sign Out" onPress={handleSignOut} color="#d9534f" />
-      </View>
-    </ScrollView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollView: {
+  gradient: {
     flex: 1,
-    backgroundColor: '#31C99E',
+  },
+  scrollView: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   container: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 30,
-    paddingBottom: 250,
-    backgroundColor: '#fff',
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   profilePic: {
     width: 150,
@@ -112,7 +172,7 @@ const styles = StyleSheet.create({
     borderRadius: 75,
     borderWidth: 4,
     borderColor: '#31C99E',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   nameAge: {
     fontSize: 28,
@@ -120,71 +180,78 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 15,
   },
-  subText: {
-    fontSize: 16,
-    color: 'gray',
+  aboutMeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
     marginBottom: 20,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
   },
   infoTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
+    color: '#31C99E',
   },
   infoText: {
     fontSize: 16,
-    marginBottom: 5,
+    color: '#555',
   },
   editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#31C99E',
-    padding: 12,
+    padding: 15,
     borderRadius: 25,
     width: '90%',
-    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 10,
   },
   buttonText: {
-    color: '#000000',
-    fontWeight: 'bold',
-  },
-  categoryBubble: {
-    backgroundColor: '#5967EB',
-    borderRadius: 20,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginRight: 5,
-  },
-  categoryText: {
     color: '#fff',
-    fontSize: 14,
-    padding: 5,
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 10,
   },
-  aboutMeCard: {
-    backgroundColor: 'lightgrey',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 20,
-    width: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+  signOutText: {
+    color: '#000',
+    fontSize: 16,
+    marginTop: 10,
+    textDecorationLine: 'underline',
   },
   modalView: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
   },
   modalImage: {
-    width: '80%',
-    height: '80%',
+    width: '90%',
+    height: '90%',
     borderRadius: 20,
   },
   modalCloseButton: {
     position: 'absolute',
     top: 50,
     right: 30,
+    zIndex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  settingsIcon: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 1,
   },
 });
 

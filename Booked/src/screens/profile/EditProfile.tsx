@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import {
+  ScrollView,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Image,
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../../../firebaseConfig';
 
 const EditProfile = ({ navigation }) => {
@@ -15,8 +26,8 @@ const EditProfile = ({ navigation }) => {
   });
   const [imageUri, setImageUri] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
 
-  // Fetch user data from Firestore
   useEffect(() => {
     const fetchUserData = async () => {
       const db = getFirestore();
@@ -36,43 +47,55 @@ const EditProfile = ({ navigation }) => {
           Alert.alert('No user data found');
         }
       } catch (error) {
-        Alert.alert('Error fetching user data:', error.message);
+        Alert.alert('Error', 'Failed to fetch user data: ' + error.message);
+      } finally {
+        setIsFetching(false);
       }
     };
 
     fetchUserData();
   }, []);
 
-  // Handle image change (ImagePicker)
   const handleImageChange = async () => {
-    let result: ImagePicker.ImagePickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Corrected deprecated warning
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow access to your photo library to upload images.');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets) {
       const selectedImageUri = result.assets[0].uri;
       setImageUri(selectedImageUri);
       setUserData({ ...userData, profilePicture: selectedImageUri });
     }
   };
 
-  // Save profile changes to Firestore
   const handleSave = async () => {
     setIsLoading(true);
 
-    if (imageUri && imageUri.startsWith('file://')) {
-      const imageUrl = await uploadImage(imageUri);
-      setUserData((prevData) => ({ ...prevData, profilePicture: imageUrl }));
-    }
-
-    const db = getFirestore();
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-
     try {
-      await updateDoc(userRef, userData);
+      let updatedProfilePicture = userData.profilePicture;
+
+      // Uploads new image 
+      if (imageUri && imageUri.startsWith('file://')) {
+        updatedProfilePicture = await uploadImage(imageUri);
+      }
+
+      // Updates user data in Firestore
+      const db = getFirestore();
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
+        ...userData,
+        profilePicture: updatedProfilePicture,
+      });
+
       Alert.alert('Profile Updated', 'Your profile has been successfully updated.');
       navigation.goBack();
     } catch (error) {
@@ -82,81 +105,103 @@ const EditProfile = ({ navigation }) => {
     }
   };
 
-  // Upload image to Firebase Storage
-  const uploadImage = async (uri: string) => {
-    const blob = await (await fetch(uri)).blob();
-    const storage = getStorage();
-    const imageName = `profile_${auth.currentUser.uid}`;
-    const imageRef = ref(storage, `profilePictures/${imageName}`);
+  const uploadImage = async (uri) => {
+    try {
+      const blob = await (await fetch(uri)).blob();
+      const storage = getStorage();
+      const imageName = `profile_${auth.currentUser.uid}`;
+      const imageRef = ref(storage, `profilePictures/${imageName}`);
 
-    await uploadBytes(imageRef, blob);
-    return getDownloadURL(imageRef);
+      await uploadBytes(imageRef, blob);
+      return getDownloadURL(imageRef);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
   };
 
-  return (
-    <ScrollView style={styles.scrollView}>
-      <View style={styles.container}>
-        <TouchableOpacity onPress={handleImageChange} style={styles.imageContainer}>
-          <Image
-            source={{ uri: imageUri || userData.profilePicture || require('../../../assets/default-avatar.png') }}
-            style={styles.profilePic}
-          />
-          <View style={styles.iconOverlay}>
-            <Icon name="pencil" size={30} color="#fff" />
-          </View>
-        </TouchableOpacity>
-
-        <Text style={styles.label}>Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Name"
-          value={userData.name}
-          onChangeText={(text) => setUserData({ ...userData, name: text })}
-        />
-
-        <Text style={styles.label}>About you</Text>
-        <TextInput
-          style={[styles.input, styles.bioInput]}
-          placeholder="Write a short bio"
-          value={userData.bio}
-          onChangeText={(text) => setUserData({ ...userData, bio: text })}
-          multiline
-        />
-
-        <Text style={styles.label}>Status</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Your status"
-          value={userData.status}
-          onChangeText={(status) => setUserData({ ...userData, status })}
-        />
-
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={isLoading}>
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Save Changes</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
+  if (isFetching) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#31C99E" />
       </View>
-    </ScrollView>
+    );
+  }
+
+  return (
+    <LinearGradient colors={['#f0f0f0', '#e0e0e0']} style={styles.gradient}>
+      <ScrollView contentContainerStyle={styles.scrollView}>
+        <View style={styles.container}>
+          <TouchableOpacity onPress={handleImageChange} style={styles.imageContainer}>
+            <Image
+              source={
+                userData.profilePicture
+                  ? { uri: userData.profilePicture }
+                  : require('../../../assets/default-avatar.png')
+              }
+              style={styles.profilePic}
+              onError={() => setUserData({ ...userData, profilePicture: '' })}
+            />
+            <View style={styles.iconOverlay}>
+              <Icon name="pencil" size={20} color="#fff" />
+            </View>
+          </TouchableOpacity>
+
+          <Text style={styles.label}>Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Name"
+            value={userData.name}
+            onChangeText={(text) => setUserData({ ...userData, name: text })}
+          />
+
+          <Text style={styles.label}>About you</Text>
+          <TextInput
+            style={[styles.input, styles.bioInput]}
+            placeholder="Write a short bio"
+            value={userData.bio}
+            onChangeText={(text) => setUserData({ ...userData, bio: text })}
+            multiline
+          />
+
+          <Text style={styles.label}>Status</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Your status"
+            value={userData.status}
+            onChangeText={(status) => setUserData({ ...userData, status })}
+          />
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={isLoading}>
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Save Changes</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   scrollView: {
-    backgroundColor: '#f0f0f0',
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   container: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 120,
-    paddingBottom: 200,
-    backgroundColor: '#fff',
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   profilePic: {
     width: 150,
@@ -168,15 +213,16 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-    marginBottom: 30,
+    marginBottom: 20,
+    marginTop: 40,
   },
   iconOverlay: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 20,
     right: 0,
     backgroundColor: '#31C99E',
-    padding: 10,
-    borderRadius: 50,
+    padding: 8,
+    borderRadius: 20,
   },
   input: {
     width: '85%',
@@ -184,12 +230,13 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 10,
-    backgroundColor: '#f9f9f9',
+    marginBottom: 15,
+    backgroundColor: '#fff',
     fontSize: 16,
   },
   bioInput: {
-    height: 80,
+    height: 100,
+    textAlignVertical: 'top',
   },
   label: {
     fontSize: 16,
@@ -205,23 +252,28 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     width: '85%',
     alignItems: 'center',
-    marginTop: 15,
+    marginTop: 20,
   },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
   backButton: {
-    marginTop: 20,
+    marginTop: 15,
     padding: 10,
-    backgroundColor: '#31C99E', // Changed the back button to match the design
-    borderRadius: 25,
-    width: '85%',
     alignItems: 'center',
   },
   backButtonText: {
-    color: '#fff',
+    color: '#31C99E',
     fontWeight: 'bold',
+    fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
   },
 });
 
