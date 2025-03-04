@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
-import Animated, { FadeIn } from "react-native-reanimated";
+// import Animated, { FadeIn } from "react-native-reanimated";
 import { globalStyles } from "../styles/globalStyles"; 
 
 export default function Login({ navigation }: any) {
@@ -51,7 +51,7 @@ export default function Login({ navigation }: any) {
   };
 
   return (
-    <Animated.View style={globalStyles.container} entering={FadeIn.duration(500)}>
+    <View style={globalStyles.container}>
       <Text style={globalStyles.title}>Booked</Text>
 
       <TextInput
@@ -92,6 +92,6 @@ export default function Login({ navigation }: any) {
           <Text style={globalStyles.signupLink}> Sign up</Text>
         </TouchableOpacity>
       </View>
-    </Animated.View>
+    </View>
   );
 }

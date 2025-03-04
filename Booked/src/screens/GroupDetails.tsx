@@ -19,7 +19,6 @@ import { db } from "../../firebaseConfig";
 import { doc, getDoc, updateDoc, arrayUnion, setDoc, collection, addDoc, query, where, getDocs } from "firebase/firestore";
 import { useUser } from "../context/UserContext";
 import { Calendar } from "react-native-calendars";
-import Animated, { FadeInDown } from "react-native-reanimated";
 import * as Linking from "expo-linking";
 import * as Clipboard from "expo-clipboard";
 

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import Animated from "react-native-reanimated";
-import * as Animatable from "react-native-animatable";
 
 const onboardingData = [
   {
@@ -43,17 +42,15 @@ export default function Onboarding({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <Animatable.Image 
-        animation="fadeInUp"
-        duration={600}
+      <Image 
         source={onboardingData[step].image}
         style={styles.image}
         resizeMode="contain"
       />
       
-      <Animatable.Text animation="fadeInDown" duration={500} style={styles.title}>
+      <Text style={styles.title}>
         {onboardingData[step].title}
-      </Animatable.Text>
+      </Text>
 
       <Text style={styles.description}>{onboardingData[step].description}</Text>
 

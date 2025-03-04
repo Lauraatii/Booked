@@ -4,7 +4,6 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 import * as ImagePicker from "react-native-image-picker";
-import Animated, { FadeInDown } from "react-native-reanimated";
 
 const interests = ["Trips", "Parties", "Coffee", "Workouts", "Outdoor", "Dining", "Gaming", "Concerts"];
 
@@ -59,7 +58,7 @@ export default function Signup({ navigation }: any) {
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <Animated.View style={styles.container} entering={FadeInDown.duration(500)}>
+      <View style={styles.container}>
         <Text style={styles.title}>Sign Up</Text>
 
         {step === 1 && (
@@ -134,7 +133,7 @@ export default function Signup({ navigation }: any) {
             <Text style={styles.loginLink}> Log in</Text>
           </TouchableOpacity>
         </View>
-      </Animated.View>
+      </View>
     </ScrollView>
   );
 }

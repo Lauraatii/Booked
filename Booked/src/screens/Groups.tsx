@@ -15,7 +15,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { db } from "../../firebaseConfig";
 import { collection, addDoc, getDocs, query, where, doc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
 import { useUser } from "../context/UserContext";
-import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function Groups({ navigation }: any) {
   const { user } = useUser();
@@ -218,9 +217,8 @@ export default function Groups({ navigation }: any) {
 
       {/* Group Creation Modal */}
       {isCreatingGroup && (
-        <Animated.View
+        <View
           style={styles.modalOverlay}
-          entering={FadeInDown.duration(300)}
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Create a New Group</Text>
@@ -246,7 +244,7 @@ export default function Groups({ navigation }: any) {
               </TouchableOpacity>
             </View>
           </View>
-        </Animated.View>
+        </View>
       )}
 
       {/* Render selected section content */}

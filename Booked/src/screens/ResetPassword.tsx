@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
-import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function ResetPassword({ navigation }: any) {
   const [email, setEmail] = useState("");
@@ -30,7 +29,7 @@ export default function ResetPassword({ navigation }: any) {
   };
 
   return (
-    <Animated.View style={styles.container} entering={FadeInDown.duration(500)}>
+    <View style={styles.container}>
       <Text style={styles.title}>Reset Password</Text>
       <TextInput
         style={styles.input}
@@ -45,7 +44,7 @@ export default function ResetPassword({ navigation }: any) {
       <TouchableOpacity onPress={() => navigation.navigate("Login")}>
         <Text style={styles.signupText}>Back to <Text style={styles.signupLink}>Login</Text></Text>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 }
 
