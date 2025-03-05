@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
-// import Animated, { FadeIn } from "react-native-reanimated";
 import { globalStyles } from "../styles/globalStyles"; 
 
 export default function Login({ navigation }: any) {

@@ -195,32 +195,52 @@ export default function Home({ navigation }: any) {
         <Text style={styles.createEventText}>Create an Event</Text>
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {selectedEvent && (
-              <>
-                <Text style={styles.modalTitle}>{selectedEvent.title}</Text>
-                <Text style={styles.modalSubtitle}>{selectedEvent.date} • {selectedEvent.location}</Text>
-                <Text style={styles.modalDescription}>{selectedEvent.description}</Text>
-                <View style={styles.modalActions}>
-                  <TouchableOpacity style={styles.modalButton} onPress={() => handleShareEvent(selectedEvent)}>
-                    <Ionicons name="share-social" size={20} color="#fff" />
-                    <Text style={styles.modalButtonText}>Share</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.modalButton} onPress={() => alert("You joined the event!")}>
-                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                    <Text style={styles.modalButtonText}>Join</Text>
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
-                  <Ionicons name="close" size={24} color="#666" />
-                </TouchableOpacity>
-              </>
-            )}
+      <Modal
+  visible={modalVisible}
+  transparent
+  animationType="slide"
+  onRequestClose={() => setModalVisible(false)} // Add this line
+>
+  <TouchableOpacity
+    style={styles.modalOverlay}
+    activeOpacity={1}
+    onPress={() => setModalVisible(false)} // Close modal when tapping outside
+  >
+    <View style={styles.modalContent}>
+      {selectedEvent && (
+        <>
+          <Text style={styles.modalTitle}>{selectedEvent.title}</Text>
+          <Text style={styles.modalSubtitle}>
+            {selectedEvent.date} • {selectedEvent.location}
+          </Text>
+          <Text style={styles.modalDescription}>{selectedEvent.description}</Text>
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => handleShareEvent(selectedEvent)}
+            >
+              <Ionicons name="share-social" size={20} color="#fff" />
+              <Text style={styles.modalButtonText}>Share</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => alert("You joined the event!")}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={styles.modalButtonText}>Join</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setModalVisible(false)}
+          >
+            <Ionicons name="close" size={24} color="#666" />
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
+  </TouchableOpacity>
+</Modal>
     </View>
   );
 }
