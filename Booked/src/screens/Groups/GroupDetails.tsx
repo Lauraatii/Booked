@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -12,35 +12,31 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  Image,
   Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { db } from "../../firebaseConfig";
-import { doc, getDoc, updateDoc, arrayUnion, setDoc, collection, addDoc, query, where, getDocs } from "firebase/firestore";
-import { useUser } from "../context/UserContext";
-import { Calendar } from "react-native-calendars";
-import * as Linking from "expo-linking";
-import * as Clipboard from "expo-clipboard";
+import { db } from "../../../firebaseConfig";
+import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { useUser } from "../../context/UserContext";
 
 const { width, height } = Dimensions.get("window");
 
 export default function GroupDetails({ route, navigation }: any) {
   const { groupId } = route.params;
   const { user } = useUser();
-  const [group, setGroup] = useState<any>({ name: "", members: [] });
+  const [group, setGroup] = useState<any>({ name: "", members: [], image: null });
   const [loading, setLoading] = useState(true);
-  const [showMenu, setShowMenu] = useState(false);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
   const [showAvailability, setShowAvailability] = useState(false);
   const [selectedDates, setSelectedDates] = useState({});
   const [groupAvailability, setGroupAvailability] = useState({});
   const [overlappingDates, setOverlappingDates] = useState<string[]>([]);
-  const [newGroupName, setNewGroupName] = useState("");
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [groupImage, setGroupImage] = useState<string | null>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showPlusModal, setShowPlusModal] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     const fetchGroupDetails = async () => {
@@ -50,7 +46,8 @@ export default function GroupDetails({ route, navigation }: any) {
 
         if (groupSnap.exists()) {
           setGroup({ id: groupSnap.id, ...groupSnap.data() });
-          setMessages(groupSnap.data().messages || []); // Loads chat messages
+          setMessages(groupSnap.data().messages || []);
+          setGroupImage(groupSnap.data().image || null);
         } else {
           Alert.alert("Error", "Group not found.");
           navigation.goBack();
@@ -65,7 +62,6 @@ export default function GroupDetails({ route, navigation }: any) {
     fetchGroupDetails();
   }, [groupId]);
 
-  // Handles sending a message
   const handleSendMessage = async () => {
     if (!message.trim()) return;
 
@@ -84,12 +80,12 @@ export default function GroupDetails({ route, navigation }: any) {
 
       setMessages((prev) => [...prev, newMessage]);
       setMessage("");
+      scrollToBottom();
     } catch (error) {
       Alert.alert("Error", "Failed to send message.");
     }
   };
 
-  // Shares availability with the group
   const handleShareAvailability = async () => {
     if (Object.keys(selectedDates).length === 0) {
       Alert.alert("Error", "Please select at least one date.");
@@ -119,7 +115,6 @@ export default function GroupDetails({ route, navigation }: any) {
     }
   };
 
-  // Sync group calendars
   const syncGroupCalendars = async () => {
     try {
       const groupRef = doc(db, "groups", groupId);
@@ -146,7 +141,6 @@ export default function GroupDetails({ route, navigation }: any) {
     }
   };
 
-  // Finds overlapping free dates
   const findOverlappingDates = (availability: Record<string, any>) => {
     const memberAvailabilities = Object.values(availability);
     if (memberAvailabilities.length === 0) return [];
@@ -167,7 +161,37 @@ export default function GroupDetails({ route, navigation }: any) {
     return overlappingDates;
   };
 
-  // Renders overlapping dates
+  const scrollToBottom = () => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+  };
+
+  const handleScroll = (event: any) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const contentHeight = event.nativeEvent.contentSize.height;
+    const layoutHeight = event.nativeEvent.layoutMeasurement.height;
+
+    if (offsetY + layoutHeight < contentHeight - 50) {
+      setShowScrollButton(true);
+    } else {
+      setShowScrollButton(false);
+    }
+  };
+
+  const formatMessageTime = (timestamp: string) => {
+    const messageDate = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (messageDate.toDateString() === today.toDateString()) {
+      return `Today, ${messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+      return `Yesterday, ${messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    } else {
+      return `${messageDate.toLocaleDateString()}, ${messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    }
+  };
+
   const renderOverlappingDates = () => {
     if (overlappingDates.length === 0) {
       return <Text style={styles.noDatesText}>No overlapping dates found.</Text>;
@@ -185,7 +209,6 @@ export default function GroupDetails({ route, navigation }: any) {
     );
   };
 
-  // Renders chat messages
   const renderMessage = ({ item }: any) => {
     if (item.type === "availability") {
       return (
@@ -210,98 +233,10 @@ export default function GroupDetails({ route, navigation }: any) {
       >
         <Text style={styles.messageText}>{item.text}</Text>
         <Text style={styles.messageTime}>
-          {new Date(item.timestamp).toLocaleTimeString()}
+          {formatMessageTime(item.timestamp)}
         </Text>
       </View>
     );
-  };
-
-  // Invite via Link
-  const handleCopyInviteLink = () => {
-    const inviteLink = `${Linking.createURL("/groupDetails")}?groupId=${groupId}`;
-    Clipboard.setString(inviteLink); 
-    Alert.alert("Link copied", "The invite link has been copied to your clipboard!");
-  };
-
-  // Invite via Email
-  const handleInviteByEmail = async () => {
-    if (!inviteEmail.trim()) {
-      Alert.alert("Error", "Please enter an email address.");
-      return;
-    }
-
-    try {
-      const inviteRef = await addDoc(collection(db, "invitations"), {
-        groupId,
-        invitedUser: inviteEmail,
-        inviter: user.email,
-        status: "pending",
-        message: "Join my group!",
-      });
-
-      Alert.alert("Success", "Invitation sent via email!");
-    } catch (error) {
-      Alert.alert("Error", "Failed to send the invitation.");
-    }
-  };
-
-  // Edit Group Info
-  const handleEditGroupName = async () => {
-    if (!newGroupName.trim()) {
-      Alert.alert("Error", "Please enter a valid group name.");
-      return;
-    }
-
-    try {
-      const groupRef = doc(db, "groups", groupId);
-      await updateDoc(groupRef, {
-        name: newGroupName,
-      });
-      setGroup({ ...group, name: newGroupName });
-      setShowEditModal(false);
-      Alert.alert("Success", "Group name updated!");
-    } catch (error) {
-      Alert.alert("Error", "Failed to update group name.");
-    }
-  };
-
-  // Search for users to add to the group
-  const handleSearchUser = async () => {
-    if (!searchQuery.trim()) return;
-
-    try {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("email", "==", searchQuery));
-      const querySnapshot = await getDocs(q);
-
-      const results = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        email: doc.data().email,
-      }));
-
-      setSearchResults(results);
-    } catch (error) {
-      Alert.alert("Error", "Failed to search users.");
-    }
-  };
-
-  // Add selected user to the group
-  const handleAddMember = async (userId: string) => {
-    try {
-      const groupRef = doc(db, "groups", groupId);
-      await updateDoc(groupRef, {
-        members: arrayUnion(userId),
-      });
-
-      setGroup((prevGroup) => ({
-        ...prevGroup,
-        members: [...prevGroup.members, userId],
-      }));
-
-      Alert.alert("Success", "User added to the group!");
-    } catch (error) {
-      Alert.alert("Error", "Failed to add member.");
-    }
   };
 
   if (loading) {
@@ -320,63 +255,60 @@ export default function GroupDetails({ route, navigation }: any) {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        {/* Header with Group Name and Menu */}
+        {/* Header with Group Name, Image, and Icons */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#26A480" />
           </TouchableOpacity>
-          <Text style={styles.groupName} numberOfLines={1} ellipsizeMode="tail">
-            {group.name}
-          </Text>
-          <TouchableOpacity onPress={() => setShowMenu(true)}>
-            <Ionicons name="ellipsis-vertical" size={24} color="#26A480" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Search for Users */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search for a user"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          <TouchableOpacity onPress={handleSearchUser} style={styles.searchButton}>
-            <Ionicons name="search" size={20} color="#555" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Display Search Results */}
-        {searchResults.length > 0 && (
-          <FlatList
-            data={searchResults}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.searchResultItem}>
-                <Text style={styles.searchResultText}>{item.email}</Text>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => handleAddMember(item.id)}
-                >
-                  <Text style={styles.addButtonText}>Add</Text>
-                </TouchableOpacity>
-              </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("GroupInfo", { groupId })}
+            style={styles.groupInfoContainer}
+          >
+            {groupImage ? (
+              <Image source={{ uri: groupImage }} style={styles.groupImage} />
+            ) : (
+              <Ionicons name="people" size={32} color="#26A480" />
             )}
-            style={styles.searchResultsContainer}
-          />
-        )}
+            <Text style={styles.groupName} numberOfLines={1} ellipsizeMode="tail">
+              {group.name}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowAvailability(true)}>
+            <Ionicons name="calendar" size={24} color="#26A480" />
+          </TouchableOpacity>
+        </View>
 
         {/* Chat Section */}
         <FlatList
+          ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
           contentContainerStyle={styles.chatContainer}
           style={styles.chatList}
+          onContentSizeChange={() => scrollToBottom()}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         />
+
+        {/* Scroll to Bottom Button */}
+        {showScrollButton && (
+          <TouchableOpacity
+            style={styles.scrollToBottomButton}
+            onPress={scrollToBottom}
+          >
+            <Ionicons name="arrow-down" size={24} color="#26A480" />
+          </TouchableOpacity>
+        )}
 
         {/* Message Input */}
         <View style={styles.inputContainer}>
+          <TouchableOpacity
+            style={styles.plusButton}
+            onPress={() => setShowPlusModal(true)}
+          >
+            <Ionicons name="add" size={24} color="#26A480" />
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             placeholder="Type a message..."
@@ -389,88 +321,95 @@ export default function GroupDetails({ route, navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* Availability Modal */}
-        {showAvailability && renderAvailabilityCalendar()}
-
-        {/* Overlapping Dates Section */}
-        {renderOverlappingDates()}
-
-        {/* Settings Menu Modal */}
-        <Modal visible={showMenu} transparent animationType="fade">
-          <TouchableOpacity
-            style={styles.menuOverlay}
-            activeOpacity={1}
-            onPress={() => setShowMenu(false)}
-          >
-            <View style={styles.menu}>
+        {/* Plus Button Modal */}
+        <Modal
+          visible={showPlusModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowPlusModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.plusModalContent}>
               <TouchableOpacity
-                style={styles.menuItem}
-                onPress={handleCopyInviteLink}
+                style={styles.modalOption}
+                onPress={() => {
+                  setShowPlusModal(false);
+                  setShowAvailability(true);
+                }}
               >
-                <Ionicons name="link" size={20} color="#555" />
-                <Text style={styles.menuItemText}>Copy Invite Link</Text>
+                <Ionicons name="calendar" size={24} color="#26A480" />
+                <Text style={styles.modalOptionText}>Share Availability</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => setShowEditModal(true)}
+                style={styles.modalOption}
+                onPress={() => {
+                  setShowPlusModal(false);
+                  Alert.alert("Info", "Share image functionality to be implemented.");
+                }}
               >
-                <Ionicons name="create" size={20} color="#555" />
-                <Text style={styles.menuItemText}>Edit Group Name</Text>
+                <Ionicons name="image" size={24} color="#26A480" />
+                <Text style={styles.modalOptionText}>Share Image</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.menuItem}
-                onPress={handleInviteByEmail}
+                style={styles.modalOption}
+                onPress={() => {
+                  setShowPlusModal(false);
+                  Alert.alert("Info", "Share document functionality to be implemented.");
+                }}
               >
-                <Ionicons name="mail" size={20} color="#555" />
-                <Text style={styles.menuItemText}>Invite via Email</Text>
+                <Ionicons name="document" size={24} color="#26A480" />
+                <Text style={styles.modalOptionText}>Share Document</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.menuItem}
-                onPress={syncGroupCalendars}
+                style={styles.modalOption}
+                onPress={() => {
+                  setShowPlusModal(false);
+                  Alert.alert("Info", "Create poll functionality to be implemented.");
+                }}
               >
-                <Ionicons name="sync" size={20} color="#555" />
-                <Text style={styles.menuItemText}>Sync Group Calendars</Text>
+                <Ionicons name="podium" size={24} color="#26A480" />
+                <Text style={styles.modalOptionText}>Create Poll</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => setShowMenu(false)}
+                style={styles.modalOption}
+                onPress={() => {
+                  setShowPlusModal(false);
+                  Alert.alert("Info", "Create event functionality to be implemented.");
+                }}
               >
-                <Ionicons name="close" size={20} color="#555" />
-                <Text style={styles.menuItemText}>Close</Text>
+                <Ionicons name="create" size={24} color="#26A480" />
+                <Text style={styles.modalOptionText}>Create Event</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowPlusModal(false)}
+              >
+                <Text style={styles.buttonText}>Close</Text>
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
 
-        {/* Edit Group Name Modal */}
-        {showEditModal && (
-          <Modal visible={showEditModal} transparent animationType="fade">
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <TextInput
-                  style={styles.input}
-                  value={newGroupName}
-                  onChangeText={setNewGroupName}
-                  placeholder="New Group Name"
-                  placeholderTextColor="#888"
-                />
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => setShowEditModal(false)}
-                  >
-                    <Text style={styles.buttonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.createButton}
-                    onPress={handleEditGroupName}
-                  >
-                    <Text style={styles.buttonText}>Save</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+        {/* Overlapping Dates Modal */}
+        {showAvailability && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Group Availability</Text>
+              {renderOverlappingDates()}
+              <TouchableOpacity
+                style={styles.syncButton}
+                onPress={syncGroupCalendars}
+              >
+                <Text style={styles.buttonText}>Sync Calendars</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowAvailability(false)}
+              >
+                <Text style={styles.buttonText}>Close</Text>
+              </TouchableOpacity>
             </View>
-          </Modal>
+          </View>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -480,17 +419,17 @@ export default function GroupDetails({ route, navigation }: any) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#F7F8F9",
   },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#F7F8F9",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#F7F8F9",
   },
   loadingText: {
     fontSize: 16,
@@ -503,16 +442,32 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  groupInfoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginHorizontal: 10,
+  },
+  groupImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
   },
   groupName: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#26A480",
     flex: 1,
-    marginHorizontal: 10,
-    textAlign: "center",
   },
   chatContainer: {
     paddingHorizontal: 16,
@@ -562,8 +517,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 8,
+    backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#eee",
+  },
+  plusButton: {
+    padding: 8,
   },
   input: {
     flex: 1,
@@ -578,62 +537,73 @@ const styles = StyleSheet.create({
   sendButton: {
     padding: 8,
   },
-  availabilityContainer: {
+  modalOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-  },
-  shareButton: {
-    backgroundColor: "#26A480",
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 20,
-  },
-  shareButtonText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  closeButton: {
-    position: "absolute",
-    top: 40,
-    right: 20,
-    padding: 10,
-  },
-  menuOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  menu: {
+  plusModalContent: {
+    width: "80%",
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    width: width * 0.8,
+    borderRadius: 15,
+    padding: 20,
   },
-  menuItem: {
+  modalOption: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    paddingVertical: 10,
   },
-  menuItemText: {
+  modalOptionText: {
     fontSize: 16,
-    color: "#555",
+    color: "#26A480",
     marginLeft: 10,
+  },
+  modalContent: {
+    width: "90%",
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  syncButton: {
+    backgroundColor: "#26A480",
+    padding: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  closeButton: {
+    backgroundColor: "#26A480",
+    padding: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   overlappingDatesContainer: {
     padding: 16,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#fff",
     borderRadius: 12,
     margin: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   overlappingDatesTitle: {
     fontSize: 18,
@@ -652,96 +622,17 @@ const styles = StyleSheet.create({
     textAlign: "center",
     margin: 16,
   },
-  modalOverlay: {
+  scrollToBottomButton: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  modalContent: {
-    width: "80%",
+    bottom: 80,
+    right: 20,
     backgroundColor: "#fff",
-    borderRadius: 15,
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  cancelButton: {
-    backgroundColor: "#ccc",
-    padding: 10,
-    borderRadius: 10,
-    flex: 1,
-    marginRight: 10,
-    alignItems: "center",
-  },
-  createButton: {
-    backgroundColor: "#26A480",
-    padding: 10,
-    borderRadius: 10,
-    flex: 1,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 10,
-  },
-  searchInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
     borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: "#fff",
-  },
-  searchButton: {
     padding: 10,
-  },
-  searchResultsContainer: {
-    padding: 10,
-  },
-  searchResultItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 10,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  searchResultText: {
-    fontSize: 16,
-    color: "#555",
-  },
-  addButton: {
-    backgroundColor: "#26A480",
-    padding: 8,
-    borderRadius: 10,
-  },
-  addButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
 });
-function renderAvailabilityCalendar(): React.ReactNode {
-  throw new Error("Function not implemented.");
-}
-

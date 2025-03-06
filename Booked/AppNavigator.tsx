@@ -9,12 +9,13 @@ import * as Linking from "expo-linking";
 import Login from "./src/screens/Login";
 import Signup from "./src/screens/Signup";
 import ResetPassword from "./src/screens/ResetPassword";
-import Home from "./src/screens/Home";
+import Home from "./src/screens/Home/Home";
 import Profile from "./src/screens/profile/Profile";
 import EditProfile from "./src/screens/profile/EditProfile";
-import Groups from "./src/screens/Groups";
-import GroupDetails from "./src/screens/GroupDetails";
-import Events from "./src/screens/Events";
+import Groups from "./src/screens/Groups/Groups";
+import GroupDetails from "./src/screens/Groups/GroupDetails";
+import GroupInfo from "./src/screens/Groups/GroupInfo";
+import Events from "./src/screens/Calendar/Events";
 import Onboarding from "./src/screens/onboarding/Onboarding";
 
 // Deep linking configuration
@@ -28,6 +29,7 @@ const linking = {
       Profile: 'profile',
       GroupDetails: 'groupDetails', 
       EditProfile: 'editProfile',
+      GroupInfo: 'groupInfo'
     },
   },
 };
@@ -88,6 +90,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="GroupDetails" component={GroupDetails} />
         <Stack.Screen name="EditProfile" component={EditProfile} />
+        <Stack.Screen name="GroupInfo" component={GroupInfo}/>
       </Stack.Navigator>
     </NavigationContainer>
   );

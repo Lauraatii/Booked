@@ -17,7 +17,7 @@ import { Calendar } from "react-native-calendars";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import * as CalendarAPI from "expo-calendar";
-import { auth, db } from "../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
 // Predefined event categories with colors
