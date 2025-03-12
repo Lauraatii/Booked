@@ -89,6 +89,12 @@ export default function Home({ navigation }: any) {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Get today's date in YYYY-MM-DD format
+  const today = new Date().toISOString().split('T')[0];
+
+  // Check if there are any events planned for today
+  const hasEventToday = myEvents.some(event => event.date === today);
+
   // Filter events by category
   const filteredEvents = selectedCategory === "All"
     ? events
@@ -113,9 +119,20 @@ export default function Home({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Hey there, ready to plan something? 🎉</Text>
-        <Text style={styles.subtitle}>See what’s happening or create your own event.</Text>
+
+      {/* Banner for today's event */}
+      <View style={styles.banner}>
+        {hasEventToday ? (
+          <View style={styles.eventBanner}>
+            <Text style={styles.bannerText}>You have an event today:</Text>
+            <Text style={styles.bannerEventTitle}>{myEvents.find(event => event.date === today)?.title}</Text>
+          </View>
+        ) : (
+          <Text style={styles.bannerText}>Nothing planned today</Text>
+        )}
+        <TouchableOpacity style={styles.createEventButtonBanner} onPress={() => navigation.navigate("Events")}>
+          <Text style={styles.createEventTextBanner}>Create an Event</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.sectionSelector}>
@@ -190,73 +207,80 @@ export default function Home({ navigation }: any) {
         </>
       )}
 
-      <TouchableOpacity style={styles.createEventButton} onPress={() => navigation.navigate("Events")}>
-        <Ionicons name="add-circle-outline" size={26} color="#fff" />
-        <Text style={styles.createEventText}>Create an Event</Text>
-      </TouchableOpacity>
-
       <Modal
-  visible={modalVisible}
-  transparent
-  animationType="slide"
-  onRequestClose={() => setModalVisible(false)} // Add this line
->
-  <TouchableOpacity
-    style={styles.modalOverlay}
-    activeOpacity={1}
-    onPress={() => setModalVisible(false)} // Close modal when tapping outside
-  >
-    <View style={styles.modalContent}>
-      {selectedEvent && (
-        <>
-          <Text style={styles.modalTitle}>{selectedEvent.title}</Text>
-          <Text style={styles.modalSubtitle}>
-            {selectedEvent.date} • {selectedEvent.location}
-          </Text>
-          <Text style={styles.modalDescription}>{selectedEvent.description}</Text>
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => handleShareEvent(selectedEvent)}
-            >
-              <Ionicons name="share-social" size={20} color="#fff" />
-              <Text style={styles.modalButtonText}>Share</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => alert("You joined the event!")}
-            >
-              <Ionicons name="checkmark-circle" size={20} color="#fff" />
-              <Text style={styles.modalButtonText}>Join</Text>
-            </TouchableOpacity>
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            {selectedEvent && (
+              <>
+                <Text style={styles.modalTitle}>{selectedEvent.title}</Text>
+                <Text style={styles.modalSubtitle}>
+                  {selectedEvent.date} • {selectedEvent.location}
+                </Text>
+                <Text style={styles.modalDescription}>{selectedEvent.description}</Text>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={() => handleShareEvent(selectedEvent)}
+                  >
+                    <Ionicons name="share-social" size={20} color="#fff" />
+                    <Text style={styles.modalButtonText}>Share</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={() => alert("You joined the event!")}
+                  >
+                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    <Text style={styles.modalButtonText}>Join</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setModalVisible(false)}
-          >
-            <Ionicons name="close" size={24} color="#666" />
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
-  </TouchableOpacity>
-</Modal>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingBottom: 20 },
-  header: {
-    paddingVertical: 25,
-    paddingHorizontal: 20,
-    backgroundColor: "#31C99E",
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
+  container: { flex: 1, backgroundColor: "#fff", paddingBottom: 20, paddingTop: 50 },
+  banner: {
+    padding: 15,
+    backgroundColor: "#E8F5E9",
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginTop: 30,
     marginBottom: 15,
+    alignItems: "center",
   },
-  title: { fontSize: 24, fontWeight: "bold", color: "#fff" },
-  subtitle: { fontSize: 16, color: "#D9FFF5", marginTop: 5 },
+  eventBanner: {
+    alignItems: "center",
+  },
+  bannerText: { fontSize: 16, color: "#2E7D32", fontWeight: "bold" },
+  bannerEventTitle: { fontSize: 18, color: "#2E7D32", marginTop: 5, fontWeight: "bold" },
+  createEventButtonBanner: {
+    marginTop: 10,
+    backgroundColor: "#26A480",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  createEventTextBanner: { fontSize: 16, color: "#fff", fontWeight: "bold" },
   sectionSelector: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -297,22 +321,6 @@ const styles = StyleSheet.create({
   eventTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
   eventLocation: { fontSize: 14, color: "#666", marginTop: 2 },
   eventAttendees: { fontSize: 12, color: "#888", marginTop: 3 },
-  createEventButton: {
-    position: "absolute",
-    bottom: 20,
-    alignSelf: "center",
-    backgroundColor: "#26A480",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    flexDirection: "row",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  createEventText: { fontSize: 16, color: "#fff", marginLeft: 10, fontWeight: "bold" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",

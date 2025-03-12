@@ -163,8 +163,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 40,
+    paddingBottom: 20, 
+    paddingTop: 80,
   },
   profilePic: {
     width: 150,
@@ -252,6 +252,7 @@ const styles = StyleSheet.create({
     top: 20,
     right: 20,
     zIndex: 1,
+    paddingTop: 40,
   },
 });
 

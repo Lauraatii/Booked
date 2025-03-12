@@ -546,7 +546,7 @@ export default function Events() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F5F5", paddingTop: 20 },
+  container: { flex: 1, backgroundColor: "#F5F5F5", paddingBottom: 20, paddingTop: 60 },
   infoContainer: { padding: 15, alignItems: "center", marginBottom: 10 },
   infoText: { fontSize: 16, textAlign: "center", color: "#666" },
   syncButton: {
