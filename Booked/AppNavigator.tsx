@@ -5,7 +5,8 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "react-native-vector-icons";
 import * as Linking from "expo-linking";
 
-
+import SplashScreen from "./SplashScreen";
+import WelcomeScreen from "./src/screens/WelcomeScreen";
 import Login from "./src/screens/Login";
 import Signup from "./src/screens/Signup";
 import ResetPassword from "./src/screens/ResetPassword";
@@ -87,6 +88,10 @@ export default function AppNavigator() {
   return (
     <NavigationContainer linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Splash" component={SplashScreen} />
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="Login" component={Login} />
+        <Stack.Screen name="Signup" component={Signup} />
         <Stack.Screen name="Auth" component={AuthStack} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="GroupDetails" component={GroupDetails} />

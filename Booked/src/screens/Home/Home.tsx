@@ -7,7 +7,6 @@ import {
   StyleSheet,
   ScrollView,
   Modal,
-  Animated,
   Share,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
