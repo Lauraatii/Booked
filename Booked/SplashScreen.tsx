@@ -10,7 +10,7 @@ const SplashScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Image source={require("/Users/computer/Desktop/Booked/Booked/src/assets/Logo small.png")} style={styles.logo} />
+      <Image source={require("/Users/computer/Desktop/Booked/Booked/src/assets/Logo1.png")} style={styles.logo} />
     </View>
   );
 };
