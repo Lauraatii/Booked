@@ -1,33 +1,38 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
-import { globalStyles } from "../styles/globalStyles"; 
+import { globalStyles, GradientButton } from "../styles/globalStyles";
 
-export default function Login({ navigation }: any) {
+interface LoginErrors {
+  email?: string;
+  password?: string;
+}
+
+export default function Login({ navigation }: { navigation: any }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<LoginErrors>({});
   const [loading, setLoading] = useState(false);
-
 
   const validateFields = () => {
     let valid = true;
-    let newErrors: { email?: string; password?: string } = {};
+    let newErrors: LoginErrors = {};
 
     if (!email) {
-      newErrors.email = "Email is required.";
+      newErrors.email = "Email is required";
       valid = false;
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = "Enter a valid email address.";
+      newErrors.email = "Invalid email format";
       valid = false;
     }
 
     if (!password) {
-      newErrors.password = "Password is required.";
+      newErrors.password = "Password is required";
       valid = false;
     } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters.";
+      newErrors.password = "Password must be at least 6 characters";
       valid = false;
     }
 
@@ -50,47 +55,50 @@ export default function Login({ navigation }: any) {
   };
 
   return (
-    <View style={globalStyles.container}>
-      <Text style={globalStyles.title}>Booked</Text>
+    <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
+      <View style={globalStyles.container}>
+        <TextInput
+          style={[globalStyles.input, errors.email && globalStyles.inputError]}
+          placeholder="Email"
+          placeholderTextColor="#aaa"
+          value={email}
+          onChangeText={(text) => {
+            setEmail(text);
+            setErrors((prev) => ({ ...prev, email: "" }));
+          }}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        {errors.email && <Text style={globalStyles.errorText}>{errors.email}</Text>}
 
-      <TextInput
-        style={[globalStyles.input, errors.email && globalStyles.inputError]}
-        placeholder="Email"
-        value={email}
-        onChangeText={(text) => {
-          setEmail(text);
-          setErrors((prev) => ({ ...prev, email: "" }));
-        }}
-        keyboardType="email-address"
-      />
-      {errors.email && <Text style={globalStyles.errorText}>{errors.email}</Text>}
+        <TextInput
+          style={[globalStyles.input, errors.password && globalStyles.inputError]}
+          placeholder="Password"
+          placeholderTextColor="#aaa"
+          value={password}
+          onChangeText={(text) => {
+            setPassword(text);
+            setErrors((prev) => ({ ...prev, password: "" }));
+          }}
+          secureTextEntry
+        />
+        {errors.password && <Text style={globalStyles.errorText}>{errors.password}</Text>}
 
-      <TextInput
-        style={[globalStyles.input, errors.password && globalStyles.inputError]}
-        placeholder="Password"
-        value={password}
-        onChangeText={(text) => {
-          setPassword(text);
-          setErrors((prev) => ({ ...prev, password: "" }));
-        }}
-        secureTextEntry
-      />
-      {errors.password && <Text style={globalStyles.errorText}>{errors.password}</Text>}
+        <GradientButton onPress={handleLogin}>
+          {loading ? "Loading..." : "Log In"}
+        </GradientButton>
 
-      <TouchableOpacity style={globalStyles.button} onPress={handleLogin}>
-        <Text style={globalStyles.buttonText}>Log In</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigation.navigate("ResetPassword")}>
-        <Text style={globalStyles.forgotText}>Forgot Password?</Text>
-      </TouchableOpacity>
-
-      <View style={globalStyles.signupContainer}>
-        <Text style={globalStyles.signupText}>Don't have an account?</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-          <Text style={globalStyles.signupLink}> Sign up</Text>
+        <TouchableOpacity onPress={() => navigation.navigate("ResetPassword")}>
+          <Text style={globalStyles.linkText}>Forgot Password?</Text>
         </TouchableOpacity>
+
+        <View style={globalStyles.footerContainer}>
+          <Text style={globalStyles.footerText}>Don't have an account?</Text>
+          <TouchableOpacity onPress={() => navigation.navigate("Auth", { screen: "Signup" })}>
+            <Text style={globalStyles.linkText}> Sign Up</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
