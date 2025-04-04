@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   Alert,
@@ -11,10 +10,11 @@ import {
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
 import { useUser } from "../../context/UserContext";
-import * as Contacts from 'expo-contacts'; // For syncing contacts
+import { globalStyles, GradientButton } from "../../styles/globalStyles";
 
 export default function Groups({ navigation }: any) {
   const { user } = useUser();
@@ -24,7 +24,6 @@ export default function Groups({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch groups
   const fetchGroups = async () => {
     if (!user) return;
 
@@ -81,285 +80,106 @@ export default function Groups({ navigation }: any) {
     }
   };
 
-  // Sync contacts and invite them to the app
-  const syncContacts = async () => {
-    const { status } = await Contacts.requestPermissionsAsync();
-    if (status === "granted") {
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.Emails, Contacts.Fields.PhoneNumbers],
-      });
-
-      if (data.length > 0) {
-        const contactList = data.map((contact) => ({
-          name: contact.name,
-          phone: contact.phoneNumbers?.[0]?.number,
-          email: contact.emails?.[0]?.email,
-        }));
-
-        // Display a list of contacts to invite
-        Alert.alert(
-          "Invite Friends",
-          "Select contacts to invite to the app.",
-          contactList.map((contact) => ({
-            text: contact.name || contact.phone || contact.email,
-            onPress: () => inviteContact(contact),
-          }))
-        );
-      } else {
-        Alert.alert("No Contacts", "No contacts found on your device.");
-      }
-    } else {
-      Alert.alert("Permission Denied", "Please grant contact access to sync contacts.");
-    }
-  };
-
-  const inviteContact = (contact: any) => {
-    // Implement your logic to send an invite (e.g., via email or SMS)
-    Alert.alert("Invite Sent", `Invite sent to ${contact.name || contact.phone || contact.email}`);
-  };
-
   const renderGroupItem = ({ item }: any) => (
     <TouchableOpacity
-      style={styles.groupCard}
+      style={globalStyles.groupCard}
       onPress={() => navigation.navigate("GroupDetails", { groupId: item.id })}
     >
-      <View style={styles.groupIcon}>
-        <Ionicons name="people" size={24} color="#26A480" />
+      <View style={globalStyles.groupIcon}>
+        <Ionicons name="people" size={24} color="#D9FFF5" />
       </View>
-      <View style={styles.groupInfo}>
-        <Text style={styles.groupName}>{item.name}</Text>
-        <Text style={styles.groupMembers}>
+      <View style={globalStyles.groupInfo}>
+        <Text style={globalStyles.groupName}>{item.name}</Text>
+        <Text style={globalStyles.groupMembers}>
           {item.members.length} member{item.members.length !== 1 && "s"}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#888" />
+      <Ionicons name="chevron-forward" size={20} color="#D9FFF5" />
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#26A480" />
-      </View>
+      <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
+        <View style={globalStyles.loadingContainer}>
+          <ActivityIndicator size="large" color="#D9FFF5" />
+        </View>
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header with Sync Contacts and Create Group Buttons */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Groups</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity onPress={syncContacts} style={styles.syncButton}>
-            <Ionicons name="person-add" size={24} color="#26A480" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setIsCreatingGroup(true)} style={styles.createGroupButton}>
-            <Ionicons name="add" size={24} color="#26A480" />
-          </TouchableOpacity>
+    <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
+      <View style={[globalStyles.container, { paddingTop: 50 }]}>
+        {/* Header */}
+        <View style={globalStyles.header}>
+          <Text style={globalStyles.headerTitle}>Groups</Text>
+          <View style={globalStyles.headerButtons}>
+            <TouchableOpacity 
+              onPress={() => setIsCreatingGroup(true)} 
+              style={globalStyles.createGroupButton}
+            >
+              <Ionicons name="add" size={24} color="#D9FFF5" />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      {/* Group Creation Modal */}
-      {isCreatingGroup && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Create a New Group</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Group Name"
-              value={groupName}
-              onChangeText={setGroupName}
-              placeholderTextColor="#888"
-              maxLength={30}
-            />
-            <Text style={styles.charLimit}>{groupName.length}/30</Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setIsCreatingGroup(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.createButton}
-                onPress={handleCreateGroup}
-              >
-                <Text style={styles.createButtonText}>Create</Text>
-              </TouchableOpacity>
+        {/* Group Creation Modal */}
+        {isCreatingGroup && (
+          <View style={globalStyles.modalOverlay}>
+            <View style={globalStyles.modalContent}>
+              <Text style={globalStyles.modalTitle}>Create a New Group</Text>
+              <Text style={[globalStyles.modalSubtitle, { marginBottom: 15 }]}>
+                Enter a name for your new group
+              </Text>
+              
+              <TextInput
+                style={globalStyles.input}
+                placeholder="Group Name"
+                placeholderTextColor="#aaa"
+                value={groupName}
+                onChangeText={setGroupName}
+                maxLength={30}
+                autoFocus
+              />
+              <Text style={globalStyles.charLimit}>{groupName.length}/30</Text>
+              
+              <View style={globalStyles.modalButtons}>
+                <TouchableOpacity
+                  style={globalStyles.cancelButton}
+                  onPress={() => setIsCreatingGroup(false)}
+                >
+                  <Text style={globalStyles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <GradientButton onPress={handleCreateGroup}>
+                  Create Group
+                </GradientButton>
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Group List */}
-      <FlatList
-        data={groups}
-        keyExtractor={(item) => item.id}
-        renderItem={renderGroupItem}
-        contentContainerStyle={styles.groupList}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={50} color="#26A480" />
-            <Text style={styles.emptyText}>No groups yet. Create one!</Text>
-          </View>
-        }
-      />
-    </View>
+        {/* Group List */}
+        <FlatList
+          data={groups}
+          keyExtractor={(item) => item.id}
+          renderItem={renderGroupItem}
+          contentContainerStyle={globalStyles.groupList}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              tintColor="#D9FFF5"
+            />
+          }
+          ListEmptyComponent={
+            <View style={globalStyles.emptyState}>
+              <Ionicons name="people-outline" size={50} color="#D9FFF5" />
+              <Text style={globalStyles.emptyText}>No groups yet. Create one!</Text>
+            </View>
+          }
+        />
+      </View>
+    </LinearGradient>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F7F8F9",
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F7F8F9",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  headerButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  syncButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "#E8F5E9",
-  },
-  createGroupButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "#E8F5E9",
-  },
-  groupCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  groupIcon: {
-    marginRight: 16,
-  },
-  groupInfo: {
-    flex: 1,
-  },
-  groupName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  groupMembers: {
-    fontSize: 14,
-    color: "#777",
-  },
-  modalOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  modalContent: {
-    width: "90%",
-    backgroundColor: "#fff",
-    borderRadius: 15,
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 16,
-    textAlign: "center",
-    color: "#333",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    fontSize: 16,
-    color: "#333",
-  },
-  charLimit: {
-    fontSize: 12,
-    color: "#888",
-    textAlign: "right",
-    marginBottom: 16,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: "#E0E0E0",
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  createButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: "#26A480",
-    alignItems: "center",
-  },
-  createButtonText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: "#26A480",
-    textAlign: "center",
-    marginTop: 10,
-  },
-  groupList: {
-    paddingBottom: 20,
-  },
-});
