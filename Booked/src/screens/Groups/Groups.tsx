@@ -250,10 +250,10 @@ export default function Groups({ navigation }: any) {
 
   return (
     <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
-      <View style={[globalStyles.container, { paddingTop: 50 }]}>
+      <View style={[globalStyles.container, { paddingTop: 80 }]}>
         {/* Header */}
         <View style={globalStyles.header}>
-          <Text style={globalStyles.headerTitle}>Groups</Text>
+          <Text style={globalStyles.headerTitle}>Your Groups</Text>
           <View style={globalStyles.headerButtons}>
             <TouchableOpacity 
               onPress={() => setIsCreatingGroup(true)} 
