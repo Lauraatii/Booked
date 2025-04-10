@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { globalStyles, GradientButton } from "../../styles/globalStyles";
+import { globalStyles, GradientButton, ModalButton } from "../../styles/globalStyles";
 
 // Categories (Filters)
 const categories = [
@@ -243,45 +243,62 @@ export default function Home({ navigation }: any) {
         <Modal
           visible={modalVisible}
           transparent
-          animationType="slide"
+          animationType="fade"
           onRequestClose={() => setModalVisible(false)}
         >
-          <TouchableOpacity
+          <TouchableOpacity 
             style={globalStyles.modalOverlay}
             activeOpacity={1}
             onPress={() => setModalVisible(false)}
           >
-            <View style={globalStyles.modalContent}>
+            <TouchableOpacity 
+              style={globalStyles.modalContent}
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
               {selectedEvent && (
                 <>
-                  <Text style={globalStyles.modalTitle}>{selectedEvent.title}</Text>
-                  <Text style={globalStyles.modalSubtitle}>
-                    {selectedEvent.date} • {selectedEvent.location}
-                  </Text>
-                  <Text style={globalStyles.modalDescription}>
-                    {selectedEvent.description}
-                  </Text>
-                  <View style={globalStyles.modalActions}>
-                    <TouchableOpacity
-                      style={globalStyles.modalButton}
+                  <View style={globalStyles.modalHeader}>
+                    <Text style={globalStyles.modalTitle}>{selectedEvent.title}</Text>
+                    <Text style={globalStyles.modalSubtitle}>
+                      {selectedEvent.date} • {selectedEvent.location}
+                    </Text>
+                  </View>
+                  
+                  <View style={globalStyles.modalBody}>
+                    <Text style={{ 
+                      color: "rgba(255, 255, 255, 0.8)",
+                      fontSize: 14,
+                      lineHeight: 20,
+                    }}>
+                      {selectedEvent.description}
+                    </Text>
+                  </View>
+                  
+                  <View style={globalStyles.modalFooter}>
+                    <ModalButton 
+                      type="cancel"
                       onPress={() => handleShareEvent(selectedEvent)}
                     >
-                      <Ionicons name="share-social" size={20} color="#fff" />
-                      <Text style={globalStyles.modalButtonText}>Share</Text>
-                    </TouchableOpacity>
-                    <GradientButton onPress={() => alert("You joined the event!")}>
+                      <View style={globalStyles.modalButtonContent}>
+                        <Ionicons name="share-social" size={16} color="#fff" style={{ marginRight: 8 }} />
+                        <Text style={{ color: '#fff' }}>Share</Text>
+                      </View>
+                    </ModalButton>
+                    <ModalButton onPress={() => alert("You joined the event!")}>
                       Join Event
-                    </GradientButton>
+                    </ModalButton>
                   </View>
+
                   <TouchableOpacity
-                    style={globalStyles.closeButton}
+                    style={globalStyles.modalCloseButton}
                     onPress={() => setModalVisible(false)}
                   >
-                    <Ionicons name="close" size={24} color="#666" />
+                    <Ionicons name="close" size={20} color="#fff" />
                   </TouchableOpacity>
                 </>
               )}
-            </View>
+            </TouchableOpacity>
           </TouchableOpacity>
         </Modal>
       </View>

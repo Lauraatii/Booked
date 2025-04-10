@@ -227,65 +227,94 @@ export const globalStyles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.7)",
     marginTop: 5,
   },
+  // Unified Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute', // This prevents content shift
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalContent: {
-    backgroundColor: "#100f0f",
-    borderRadius: 20,
-    padding: 20,
-    width: "90%",
+    backgroundColor: "#1A1A1A",
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  modalHeader: {
+    marginBottom: 20,
   },
   modalTitle: {
     fontSize: 22,
     fontWeight: "bold",
     color: "#fff",
+    marginBottom: 4,
   },
   modalSubtitle: {
-    fontSize: 16,
-    color: "#7DFFE3",
-    marginTop: 5,
-  },
-  modalDescription: {
     fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginTop: 15,
+    color: "rgba(255, 255, 255, 0.7)",
     lineHeight: 20,
   },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
+  modalBody: {
+    marginBottom: 24,
   },
-  modalButton: {
+  modalFooter: {
+    flexDirection: "row",
+    justifyContent: "center", // Changed from 'flex-end' to 'center'
+    gap: 12,
+    marginTop: 0,
+  },
+  modalButtonContainer: {
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  modalButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: "transparent",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  modalCancelButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  modalConfirmButton: {
     backgroundColor: "#594DA8",
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-    marginHorizontal: 5,
+    borderRadius: 10,
   },
-  modalButtonText: {
-    fontSize: 16,
+  modalConfirmButtonText: {
     color: "#fff",
-    marginLeft: 10,
+    fontSize: 14,
     fontWeight: "600",
   },
-  closeButton: {
+  modalCloseButton: {
     position: "absolute",
-    top: 10,
-    right: 10,
+    top: 16,
+    right: 16,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 20,
-    padding: 5,
+    padding: 6,
   },
 
   // Groups Screen Styles
@@ -401,6 +430,28 @@ export const GradientButton = ({ children, onPress, style = {} }) => {
         }}
       />
       <Text style={globalStyles.buttonText}>{children}</Text>
+    </TouchableOpacity>
+  );
+};
+export const ModalButton = ({ children, onPress, type = "confirm", style = {} }) => {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        type === "cancel" 
+          ? globalStyles.modalCancelButton 
+          : globalStyles.modalConfirmButton,
+        globalStyles.modalButtonContainer,
+        style
+      ]}
+    >
+      <Text style={
+        type === "cancel" 
+          ? globalStyles.modalCancelButtonText 
+          : globalStyles.modalConfirmButtonText
+      }>
+        {children}
+      </Text>
     </TouchableOpacity>
   );
 };
