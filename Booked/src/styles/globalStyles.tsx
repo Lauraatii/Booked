@@ -412,7 +412,6 @@ export const globalStyles = StyleSheet.create({
   },
 });
 
-// Add these to your existing globalStyles.ts
 export const eventStyles = StyleSheet.create({
   container: {
     flex: 1,
