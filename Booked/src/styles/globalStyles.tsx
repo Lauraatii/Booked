@@ -233,7 +233,7 @@ export const globalStyles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'absolute', // This prevents content shift
+    position: 'absolute', 
     top: 0,
     left: 0,
     right: 0,
@@ -271,7 +271,7 @@ export const globalStyles = StyleSheet.create({
   },
   modalFooter: {
     flexDirection: "row",
-    justifyContent: "center", // Changed from 'flex-end' to 'center'
+    justifyContent: "center", 
     gap: 12,
     marginTop: 0,
   },

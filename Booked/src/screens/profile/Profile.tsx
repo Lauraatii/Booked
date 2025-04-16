@@ -5,7 +5,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Modal,
   Image,
   ActivityIndicator,
   RefreshControl,
@@ -23,9 +22,9 @@ const ProfileScreen = ({ navigation }) => {
     bio: '',
     birthday: '',
     interests: [],
-    profilePicture: null
+    profilePicture: null,
+    status: 'Available'
   });
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -61,7 +60,8 @@ const ProfileScreen = ({ navigation }) => {
           bio: data.bio || '',
           birthday: data.birthday || '',
           interests: data.interests || [],
-          profilePicture: data.profilePicture || null
+          profilePicture: data.profilePicture || null,
+          status: data.status || 'Available'
         });
       } else {
         Alert.alert('No user data found');
@@ -80,7 +80,7 @@ const ProfileScreen = ({ navigation }) => {
       await signOut(auth);
       navigation.reset({
         index: 0,
-        routes: [{ name: 'FirstScreen' }],
+        routes: [{ name: 'Login' }],
       });
     } catch (error) {
       console.error('Sign out error:', error);
@@ -104,10 +104,6 @@ const ProfileScreen = ({ navigation }) => {
         },
       ]
     );
-  };
-
-  const toggleModal = () => {
-    setIsModalVisible(!isModalVisible);
   };
 
   const onRefresh = () => {
@@ -139,7 +135,6 @@ const ProfileScreen = ({ navigation }) => {
       >
         {/* Header */}
         <View style={[globalStyles.header, { marginBottom: 30 }]}>
-          <Text style={globalStyles.headerTitle}>Profile</Text>
           <TouchableOpacity 
             onPress={() => navigation.navigate('Settings')}
             style={[globalStyles.createGroupButton, { padding: 10 }]}
@@ -150,21 +145,19 @@ const ProfileScreen = ({ navigation }) => {
 
         {/* Profile Picture and Name */}
         <View style={{ alignItems: 'center', marginBottom: 30 }}>
-          <TouchableOpacity onPress={toggleModal} activeOpacity={0.8}>
-            <Image
-              source={
-                userData.profilePicture
-                  ? { uri: userData.profilePicture }
-                  : require('../../../assets/default-avatar.png')
-              }
-              style={[globalStyles.profileImage, { 
-                width: 140, 
-                height: 140,
-                marginBottom: 15
-              }]}
-              onError={() => setUserData({...userData, profilePicture: null})}
-            />
-          </TouchableOpacity>
+          <Image
+            source={
+              userData.profilePicture
+                ? { uri: userData.profilePicture }
+                : require('../../../assets/default-avatar.png')
+            }
+            style={[globalStyles.profileImage, { 
+              width: 140, 
+              height: 140,
+              marginBottom: 15
+            }]}
+            onError={() => setUserData({...userData, profilePicture: null})}
+          />
 
           <Text style={[globalStyles.title, { 
             fontSize: 28,
@@ -192,7 +185,18 @@ const ProfileScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Enhanced Interests Section */}
+        {/* Status Section */}
+        <View style={[globalStyles.eventCard, { marginBottom: 20 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+            <Ionicons name="ellipse" size={24} color="#7DFFE3" style={{ marginRight: 10 }} />
+            <Text style={[globalStyles.eventTitle, { color: '#7DFFE3' }]}>Status</Text>
+          </View>
+          <Text style={[globalStyles.text, { color: '#D9FFF5' }]}>
+            {userData.status || 'No status set'}
+          </Text>
+        </View>
+
+        {/* Interests Section */}
         {userData.interests && userData.interests.length > 0 ? (
           <View style={[globalStyles.eventCard, { marginBottom: 20 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
@@ -260,36 +264,6 @@ const ProfileScreen = ({ navigation }) => {
             Sign Out
           </Text>
         </TouchableOpacity>
-
-        {/* Profile Picture Modal */}
-        <Modal 
-          animationType="fade" 
-          transparent 
-          visible={isModalVisible} 
-          onRequestClose={toggleModal}
-        >
-          <View style={globalStyles.modalOverlay}>
-            <TouchableOpacity 
-              style={[globalStyles.modalCloseButton, { top: 50 }]}
-              onPress={toggleModal}
-            >
-              <Ionicons name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Image
-              source={
-                userData.profilePicture
-                  ? { uri: userData.profilePicture }
-                  : require('../../../assets/default-avatar.png')
-              }
-              style={{ 
-                width: '90%', 
-                height: '90%', 
-                borderRadius: 10,
-              }}
-              resizeMode="contain"
-            />
-          </View>
-        </Modal>
       </ScrollView>
     </LinearGradient>
   );

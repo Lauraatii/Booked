@@ -70,8 +70,8 @@ function MainTabs() {
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: "#31C99E",
-        tabBarInactiveTintColor: "000",
-        tabBarStyle: { backgroundColor: "#FFFFFF", borderTopWidth: 0 },
+        tabBarInactiveTintColor: "#fff",
+        tabBarStyle: { backgroundColor: "#594DA8", paddingTop: 8, borderTopWidth: 0 },
         headerShown: false,
       })}
     >
