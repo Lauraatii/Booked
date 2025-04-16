@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   Alert,
-  StyleSheet,
   ActivityIndicator,
   Modal,
   TextInput,
@@ -14,25 +13,62 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import * as CalendarAPI from "expo-calendar";
 import { auth, db } from "../../../firebaseConfig";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { LinearGradient } from "expo-linear-gradient";
+import { globalStyles, eventStyles } from "../../styles/globalStyles";
 
-// Predefined event categories with colors
+// Type definitions
+type Event = {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+  isBusy: boolean;
+  category: string;
+  allDay?: boolean;
+  repeatOption?: string;
+  reminderOption?: string;
+  notes?: string;
+  participants?: string[];
+};
+
+type EventData = {
+  title: string;
+  description: string;
+  startDate: Date;
+  startTime: Date;
+  endDate: Date;
+  endTime: Date;
+  isAllDay: boolean;
+  category: string;
+  customCategory: string;
+  repeatOption: string;
+  reminderOption: string;
+  notes: string;
+  participants: string;
+};
+
+type DateTimePickerState = {
+  startDate: boolean;
+  startTime: boolean;
+  endDate: boolean;
+  endTime: boolean;
+};
+
 const EVENT_CATEGORIES = [
-  { name: "Work", color: "#26A480" },
+  { name: "Work", color: "#5967EB" },
   { name: "Personal", color: "#FF6B6B" },
-  { name: "Meeting", color: "#5967EB" },
+  { name: "Meeting", color: "#26A480" },
   { name: "Travel", color: "#FFA500" },
   { name: "Other", color: "#888" },
 ];
 
-// Repeat options
 const REPEAT_OPTIONS = ["None", "Daily", "Weekly", "Monthly", "Yearly"];
-
-// Reminder options
 const REMINDER_OPTIONS = [
   "None",
   "5 minutes before",
@@ -43,194 +79,294 @@ const REMINDER_OPTIONS = [
   "1 day before",
 ];
 
-export default function Events() {
+export default function Events({ navigation }: { navigation: any }) {
   const [loading, setLoading] = useState(false);
-  const [events, setEvents] = useState({});
+  const [syncStatus, setSyncStatus] = useState<{type: string, message: string} | null>(null);
+  const [events, setEvents] = useState<{[key: string]: Event[]}>({});
   const [isEventModalVisible, setIsEventModalVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
-  const [startDate, setStartDate] = useState(new Date());
-  const [startTime, setStartTime] = useState(new Date());
-  const [endDate, setEndDate] = useState(new Date());
-  const [endTime, setEndTime] = useState(new Date());
-  const [eventTitle, setEventTitle] = useState("");
-  const [eventDescription, setEventDescription] = useState("");
-  const [isAllDay, setIsAllDay] = useState(false); // Toggle for All Day
-  const [eventCategory, setEventCategory] = useState("Work");
-  const [customCategory, setCustomCategory] = useState("");
-  const [repeatOption, setRepeatOption] = useState("None");
-  const [reminderOption, setReminderOption] = useState("None");
-  const [notes, setNotes] = useState("");
-  const [participants, setParticipants] = useState("");
-  const [selectedEvent, setSelectedEvent] = useState(null); // For editing existing events
-  const [isAddingEvent, setIsAddingEvent] = useState(false); // Toggle for adding a new event
-  const [isRepeatCollapsed, setIsRepeatCollapsed] = useState(true); // Collapsible repeat dropdown
-  const [isReminderCollapsed, setIsReminderCollapsed] = useState(true); // Collapsible reminder dropdown
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dateTimePickers, setDateTimePickers] = useState<DateTimePickerState>({
+    startDate: false,
+    startTime: false,
+    endDate: false,
+    endTime: false,
+  });
+  const [eventData, setEventData] = useState<EventData>({
+    title: "",
+    description: "",
+    startDate: new Date(),
+    startTime: new Date(),
+    endDate: new Date(),
+    endTime: new Date(new Date().getTime() + 60 * 60 * 1000),
+    isAllDay: false,
+    category: "Work",
+    customCategory: "",
+    repeatOption: "None",
+    reminderOption: "None",
+    notes: "",
+    participants: "",
+  });
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isAddingEvent, setIsAddingEvent] = useState(false);
+  const [isRepeatCollapsed, setIsRepeatCollapsed] = useState(true);
+  const [isReminderCollapsed, setIsReminderCollapsed] = useState(true);
+  const [hasCalendarPermission, setHasCalendarPermission] = useState(false);
 
   useEffect(() => {
     fetchUserAvailability();
+    checkCalendarPermission();
   }, []);
 
-  // Requests permission and fetch calendar events
-  const requestCalendarAccess = async () => {
-    const { status } = await CalendarAPI.requestCalendarPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission Denied", "Enable calendar access in settings.");
-      return;
+  const checkCalendarPermission = async () => {
+    try {
+      const { status } = await CalendarAPI.getCalendarPermissionsAsync();
+      setHasCalendarPermission(status === 'granted');
+    } catch (error) {
+      console.error("Error checking calendar permission:", error);
     }
-    fetchCalendarEvents();
   };
 
-  // Fetches calendar events from the device
-  const fetchCalendarEvents = async () => {
+  const requestCalendarPermission = async () => {
     try {
       setLoading(true);
-      const calendars = await CalendarAPI.getCalendarsAsync(CalendarAPI.EntityTypes.EVENT);
-      const defaultCalendar = calendars.find((cal) => cal.allowsModifications);
-      if (!defaultCalendar) {
-        Alert.alert("No Editable Calendar Found");
-        return;
+      const { status } = await CalendarAPI.requestCalendarPermissionsAsync();
+      
+      if (status !== 'granted') {
+        setSyncStatus({
+          type: "error",
+          message: "Calendar permission is required to sync events"
+        });
+        return false;
       }
 
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30);
-
-      const events = await CalendarAPI.getEventsAsync([defaultCalendar.id], startDate, endDate);
-
-      // Format events to store in Firestore
-      const formattedEvents = events.map((event) => ({
-        id: event.id, // Add unique ID for each event
-        title: event.title,
-        startDate: new Date(event.startDate).toISOString(),
-        endDate: new Date(event.endDate).toISOString(),
-        description: event.notes || "", // Use 'notes' instead of 'description'
-        isBusy: true, // Default to Busy for synced events
-        category: "Other", // Default category
-      }));
-
-      storeAvailabilityInFirestore(formattedEvents);
+      setHasCalendarPermission(true);
+      return true;
     } catch (error) {
-      Alert.alert("Error", "Failed to fetch calendar events.");
+      console.error("Error requesting calendar permission:", error);
+      setSyncStatus({
+        type: "error",
+        message: "Failed to request calendar permission"
+      });
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  // Stores user availability in Firestore
-  const storeAvailabilityInFirestore = async (events) => {
-    const user = auth.currentUser;
-    if (!user) return;
+  const showDateTimePicker = (type: keyof DateTimePickerState) => {
+    setDateTimePickers(prev => ({ ...prev, [type]: true }));
+  };
 
+  const hideDateTimePicker = (type: keyof DateTimePickerState) => {
+    setDateTimePickers(prev => ({ ...prev, [type]: false }));
+  };
+
+  const handleDateTimeChange = (
+    event: DateTimePickerEvent, 
+    selectedDateTime: Date | undefined, 
+    type: keyof EventData
+  ) => {
+    if (selectedDateTime) {
+      setEventData(prev => ({ ...prev, [type]: selectedDateTime }));
+    }
+    hideDateTimePicker(type as keyof DateTimePickerState);
+  };
+
+  const syncICloudCalendar = async () => {
     try {
-      await setDoc(doc(db, "users", user.uid), { availability: events }, { merge: true });
-      Alert.alert("Success", "Your availability has been updated.");
-      fetchUserAvailability(); // Refresh the list
+      setLoading(true);
+      setSyncStatus(null);
+
+      if (!hasCalendarPermission) {
+        const permissionGranted = await requestCalendarPermission();
+        if (!permissionGranted) return;
+      }
+
+      // Get all calendars (including iCloud)
+      const calendars = await CalendarAPI.getCalendarsAsync(CalendarAPI.EntityTypes.EVENT);
+      
+      // Find iCloud calendars (they typically have 'iCloud' in the source name)
+      const iCloudCalendars = calendars.filter(cal => 
+        cal.source && cal.source.name.includes('iCloud')
+      );
+
+      if (iCloudCalendars.length === 0) {
+        setSyncStatus({
+          type: "error",
+          message: "No iCloud calendars found. Please make sure you're signed in to iCloud."
+        });
+        return;
+      }
+
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 30); // Sync next 30 days
+
+      // Get events from all iCloud calendars
+      let allEvents: Event[] = [];
+      
+      for (const calendar of iCloudCalendars) {
+        try {
+          const events = await CalendarAPI.getEventsAsync(
+            [calendar.id],
+            startDate,
+            endDate
+          );
+
+          const formattedEvents = events.map(event => ({
+            id: event.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            title: event.title || "Untitled Event",
+            startDate: event.startDate ? new Date(event.startDate).toISOString() : new Date().toISOString(),
+            endDate: event.endDate ? new Date(event.endDate).toISOString() : new Date().toISOString(),
+            description: event.notes || "",
+            isBusy: true,
+            category: "Other",
+            allDay: event.allDay || false,
+          }));
+
+          allEvents = [...allEvents, ...formattedEvents];
+        } catch (error) {
+          console.error(`Error fetching events from calendar ${calendar.title}:`, error);
+        }
+      }
+
+      if (allEvents.length === 0) {
+        setSyncStatus({
+          type: "info",
+          message: "No events found in your iCloud calendars for the next 30 days."
+        });
+        return;
+      }
+
+      await storeAvailabilityInFirestore(allEvents);
+      setSyncStatus({
+        type: "success",
+        message: `Synced ${allEvents.length} events from ${iCloudCalendars.length} iCloud calendars!`
+      });
+      
     } catch (error) {
-      Alert.alert("Error", "Failed to sync availability.");
+      console.error("iCloud calendar sync error:", error);
+      setSyncStatus({
+        type: "error",
+        message: "Failed to sync iCloud calendar. Please check your iCloud settings."
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Fetch user availability from Firestore
+  const storeAvailabilityInFirestore = async (events: Event[]) => {
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Error", "You need to be logged in to sync events.");
+      return;
+    }
+
+    try {
+      await setDoc(doc(db, "users", user.uid), { availability: events }, { merge: true });
+      fetchUserAvailability();
+    } catch (error) {
+      console.error("Firestore update error:", error);
+      throw error;
+    }
+  };
+
   const fetchUserAvailability = async () => {
     const user = auth.currentUser;
     if (!user) return;
 
-    const docRef = doc(db, "users", user.uid);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const availability = docSnap.data().availability || [];
-      const formattedEvents = availability.reduce((acc, event) => {
-        const date = new Date(event.startDate).toISOString().split("T")[0];
-        if (!acc[date]) acc[date] = [];
-        acc[date].push(event);
-        return acc;
-      }, {});
-      setEvents(formattedEvents);
-    }
-  };
-
-  // Handle date selection in the calendar
-  const handleDayPress = (day) => {
-    setSelectedDate(day.dateString);
-    setStartDate(new Date(day.dateString));
-    setEndDate(new Date(day.dateString));
-    setIsEventModalVisible(true);
-    setIsAddingEvent(false); // Reset adding event state
-  };
-
-  // Handle date/time selection for event
-  const handleDateTimeSelect = (event, selectedDateTime, type) => {
-    if (selectedDateTime) {
-      if (type === "startDate") {
-        setStartDate(selectedDateTime);
-      } else if (type === "startTime") {
-        setStartTime(selectedDateTime);
-      } else if (type === "endDate") {
-        setEndDate(selectedDateTime);
-      } else if (type === "endTime") {
-        setEndTime(selectedDateTime);
+    try {
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const availability = docSnap.data().availability || [];
+        const formattedEvents = availability.reduce((acc: {[key: string]: Event[]}, event: Event) => {
+          const date = new Date(event.startDate).toISOString().split("T")[0];
+          if (!acc[date]) acc[date] = [];
+          acc[date].push(event);
+          return acc;
+        }, {});
+        
+        setEvents(formattedEvents);
       }
-    }
-    if (type.includes("Date")) {
-      setShowStartDatePicker(false);
-      setShowEndDatePicker(false);
-    } else {
-      setShowStartTimePicker(false);
-      setShowEndTimePicker(false);
+    } catch (error) {
+      console.error("Error fetching availability:", error);
+      Alert.alert("Error", "Failed to load your events. Please try again.");
     }
   };
 
-  // Save or update event
+  const handleDayPress = (day: {dateString: string}) => {
+    setSelectedDate(day.dateString);
+    setEventData(prev => ({
+      ...prev,
+      startDate: new Date(day.dateString),
+      endDate: new Date(day.dateString),
+      startTime: new Date(),
+      endTime: new Date(new Date().getTime() + 60 * 60 * 1000)
+    }));
+    setIsEventModalVisible(true);
+    setIsAddingEvent(false);
+  };
+
   const saveEvent = async () => {
-    if (!eventTitle || !selectedDate) {
-      Alert.alert("Error", "Please fill in all fields.");
+    if (!eventData.title) {
+      Alert.alert("Error", "Event title is required");
       return;
     }
 
     const user = auth.currentUser;
-    if (!user) return;
-
-    const newEvent = {
-      id: selectedEvent ? selectedEvent.id : Date.now().toString(), // Use existing ID or generate a new one
-      title: eventTitle,
-      startDate: new Date(`${startDate.toISOString().split("T")[0]}T${startTime.toTimeString().split(" ")[0]}`).toISOString(),
-      endDate: new Date(`${endDate.toISOString().split("T")[0]}T${endTime.toTimeString().split(" ")[0]}`).toISOString(),
-      description: eventDescription,
-      isAllDay: isAllDay,
-      category: customCategory || eventCategory,
-      repeatOption: repeatOption,
-      reminderOption: reminderOption,
-      notes: notes,
-      participants: participants.split(",").map((email) => email.trim()), // Split participants by comma
-    };
+    if (!user) {
+      Alert.alert("Error", "You need to be logged in to save events.");
+      return;
+    }
 
     try {
+      const newEvent: Event = {
+        id: selectedEvent?.id || Date.now().toString(),
+        title: eventData.title,
+        startDate: new Date(
+          `${eventData.startDate.toISOString().split("T")[0]}T${eventData.startTime.toTimeString().split(" ")[0]}`
+        ).toISOString(),
+        endDate: new Date(
+          `${eventData.endDate.toISOString().split("T")[0]}T${eventData.endTime.toTimeString().split(" ")[0]}`
+        ).toISOString(),
+        description: eventData.description,
+        isBusy: true,
+        category: eventData.customCategory || eventData.category,
+        allDay: eventData.isAllDay,
+        repeatOption: eventData.repeatOption,
+        reminderOption: eventData.reminderOption,
+        notes: eventData.notes,
+        participants: eventData.participants.split(",").map(email => email.trim()),
+      };
+
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
       const existingEvents = docSnap.exists() ? docSnap.data().availability || [] : [];
 
-      // Update or add the event
       const updatedEvents = selectedEvent
-        ? existingEvents.map((event) => (event.id === selectedEvent.id ? newEvent : event))
+        ? existingEvents.map((event: Event) => event.id === selectedEvent.id ? newEvent : event)
         : [...existingEvents, newEvent];
 
-      await setDoc(docRef, { availability: updatedEvents }, { merge: true });
-      Alert.alert("Success", selectedEvent ? "Event updated successfully." : "Event saved successfully.");
-      setIsEventModalVisible(false);
-      setSelectedEvent(null); // Reset selected event
-      setIsAddingEvent(false); // Reset adding event state
-      fetchUserAvailability(); // Refresh the list
+      await updateDoc(docRef, { availability: updatedEvents });
+      
+      Alert.alert(
+        "Success",
+        selectedEvent ? "Event updated successfully!" : "Event created successfully!",
+        [{ text: "OK", onPress: () => {
+          setIsEventModalVisible(false);
+          fetchUserAvailability();
+        }}]
+      );
+      
     } catch (error) {
-      Alert.alert("Error", "Failed to save event.");
+      console.error("Error saving event:", error);
+      Alert.alert("Error", "Failed to save event. Please try again.");
     }
   };
 
-  // Delete an event
-  const deleteEvent = async (eventId) => {
+  const deleteEvent = async (eventId: string) => {
     const user = auth.currentUser;
     if (!user) return;
 
@@ -238,50 +374,57 @@ export default function Events() {
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
       const existingEvents = docSnap.exists() ? docSnap.data().availability || [] : [];
-      const updatedEvents = existingEvents.filter((event) => event.id !== eventId);
+      const updatedEvents = existingEvents.filter((event: Event) => event.id !== eventId);
 
-      await setDoc(docRef, { availability: updatedEvents }, { merge: true });
-      Alert.alert("Success", "Event deleted successfully.");
-      fetchUserAvailability(); // Refresh the list
+      await updateDoc(docRef, { availability: updatedEvents });
+      Alert.alert("Success", "Event deleted successfully!");
+      fetchUserAvailability();
     } catch (error) {
-      Alert.alert("Error", "Failed to delete event.");
+      console.error("Error deleting event:", error);
+      Alert.alert("Error", "Failed to delete event. Please try again.");
     }
   };
 
-  // Sort events by start time
-  const sortEventsByTime = (events) => {
-    return events.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
-  };
-
-  // Render event item
-  const renderEventItem = ({ item }) => (
+  const renderEventItem = ({ item }: {item: Event}) => (
     <TouchableOpacity
-      style={[styles.eventItem, { backgroundColor: EVENT_CATEGORIES.find((cat) => cat.name === item.category)?.color || "#888" }]}
+      style={[
+        eventStyles.eventItem, 
+        { 
+          backgroundColor: EVENT_CATEGORIES.find(cat => cat.name === item.category)?.color || "#888",
+          borderLeftWidth: 4,
+          borderLeftColor: "#2a0b4e"
+        }
+      ]}
       onPress={() => {
         setSelectedEvent(item);
-        setEventTitle(item.title);
-        setEventDescription(item.description);
-        setStartDate(new Date(item.startDate));
-        setStartTime(new Date(item.startDate));
-        setEndDate(new Date(item.endDate));
-        setEndTime(new Date(item.endDate));
-        setIsAllDay(item.isAllDay || false);
-        setEventCategory(item.category);
-        setRepeatOption(item.repeatOption || "None");
-        setReminderOption(item.reminderOption || "None");
-        setNotes(item.notes || "");
-        setParticipants(item.participants?.join(", ") || "");
-        setIsAddingEvent(true); // Show the form for editing
+        setEventData({
+          title: item.title,
+          description: item.description || "",
+          startDate: new Date(item.startDate),
+          startTime: new Date(item.startDate),
+          endDate: new Date(item.endDate),
+          endTime: new Date(item.endDate),
+          isAllDay: item.allDay || false,
+          category: item.category,
+          customCategory: "",
+          repeatOption: item.repeatOption || "None",
+          reminderOption: item.reminderOption || "None",
+          notes: item.notes || "",
+          participants: item.participants?.join(", ") || "",
+        });
+        setIsAddingEvent(true);
       }}
     >
-      <View style={styles.eventDetails}>
-        <Text style={styles.eventTitle}>{item.title}</Text>
-        <Text style={styles.eventTime}>
-          {new Date(item.startDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - {new Date(item.endDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      <View style={eventStyles.eventDetails}>
+        <Text style={eventStyles.eventTitle}>{item.title}</Text>
+        <Text style={eventStyles.eventTime}>
+          {new Date(item.startDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - 
+          {new Date(item.endDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </Text>
+        {item.category && <Text style={eventStyles.eventCategory}>{item.category}</Text>}
       </View>
       <TouchableOpacity
-        style={styles.deleteButton}
+        style={eventStyles.deleteButton}
         onPress={() => deleteEvent(item.id)}
       >
         <Ionicons name="trash-outline" size={20} color="#fff" />
@@ -290,406 +433,413 @@ export default function Events() {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.infoContainer}>
-        <Text style={styles.infoText}>Sync your calendar or manually add events.</Text>
-      </View>
+    <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
+      <View style={eventStyles.container}>
+        {/* Header */}
+        <View style={eventStyles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#7DFFE3" />
+          </TouchableOpacity>
+          <Text style={eventStyles.headerTitle}>My Calendar</Text>
+          <View style={{ width: 24 }} />
+        </View>
 
-      <TouchableOpacity onPress={requestCalendarAccess} style={styles.syncButton}>
-        {loading ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="sync-outline" size={24} color="#fff" />
-            <Text style={styles.syncText}>Sync Calendar</Text>
-          </>
+        {/* Sync Status */}
+        {syncStatus && (
+          <View style={[
+            eventStyles.syncStatus,
+            syncStatus.type === "error" ? eventStyles.errorStatus : 
+            syncStatus.type === "success" ? eventStyles.successStatus : eventStyles.infoStatus
+          ]}>
+            <Ionicons 
+              name={
+                syncStatus.type === "error" ? "warning" : 
+                syncStatus.type === "success" ? "checkmark-circle" : "information-circle"
+              } 
+              size={20} 
+              color="#fff" 
+            />
+            <Text style={eventStyles.syncStatusText}>{syncStatus.message}</Text>
+          </View>
         )}
-      </TouchableOpacity>
 
-      {/* Calendar View */}
-      <View style={styles.calendarContainer}>
-        <Calendar
-          onDayPress={handleDayPress}
-          markedDates={Object.keys(events).reduce((acc, date) => {
-            acc[date] = { marked: true, dotColor: "#26A480" };
-            return acc;
-          }, {})}
-          theme={{
-            selectedDayBackgroundColor: "#26A480",
-            todayTextColor: "#26A480",
-            arrowColor: "#26A480",
-          }}
-        />
-      </View>
+        {/* Sync Button */}
+        <TouchableOpacity 
+          onPress={syncICloudCalendar} 
+          style={eventStyles.syncButton}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="sync-outline" size={20} color="#fff" />
+              <Text style={eventStyles.syncText}>Sync iCloud Calendar</Text>
+            </View>
+          )}
+        </TouchableOpacity>
 
-      {/* Event List Modal */}
-      <Modal visible={isEventModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {/* Header with "+" Button */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Events for {selectedDate}
-              </Text>
+        {/* Calendar View */}
+        <View style={eventStyles.calendarContainer}>
+          <Calendar
+            onDayPress={handleDayPress}
+            markedDates={Object.keys(events).reduce((acc, date) => {
+              const eventCount = events[date].length;
+              return {
+                ...acc,
+                [date]: {
+                  marked: true,
+                  dotColor: "#5967EB",
+                  activeOpacity: 0.7,
+                  ...(eventCount > 0 && {
+                    customStyles: {
+                      container: {
+                        backgroundColor: "rgba(89, 103, 235, 0.2)",
+                        borderRadius: 6,
+                      },
+                      text: {
+                        color: "#fff",
+                        fontWeight: "bold",
+                      }
+                    }
+                  })
+                }
+              };
+            }, {})}
+            theme={{
+              backgroundColor: "#100f0f",
+              calendarBackground: "#100f0f",
+              textSectionTitleColor: "#fff",
+              selectedDayBackgroundColor: "#5967EB",
+              selectedDayTextColor: "#fff",
+              todayTextColor: "#5967EB",
+              dayTextColor: "#fff",
+              textDisabledColor: "#555",
+              dotColor: "#5967EB",
+              selectedDotColor: "#fff",
+              arrowColor: "#fff",
+              monthTextColor: "#fff",
+              indicatorColor: "#fff",
+              textDayFontWeight: "400",
+              textMonthFontWeight: "bold",
+              textDayHeaderFontWeight: "500",
+              textDayFontSize: 14,
+              textMonthFontSize: 16,
+              textDayHeaderFontSize: 14,
+            }}
+          />
+        </View>
+
+        {/* Event Modal */}
+        <Modal visible={isEventModalVisible} transparent animationType="fade">
+          <View style={globalStyles.modalOverlay}>
+            <View style={globalStyles.modalContent}>
+              <View style={globalStyles.modalHeader}>
+                <Text style={globalStyles.modalTitle}>
+                  {isAddingEvent ? (selectedEvent ? "Edit Event" : "New Event") : `Events for ${selectedDate}`}
+                </Text>
+                {!isAddingEvent && (
+                  <TouchableOpacity
+                    style={eventStyles.addButton}
+                    onPress={() => {
+                      setSelectedEvent(null);
+                      setEventData({
+                        title: "",
+                        description: "",
+                        startDate: new Date(selectedDate || new Date()),
+                        startTime: new Date(),
+                        endDate: new Date(selectedDate || new Date()),
+                        endTime: new Date(new Date().getTime() + 60 * 60 * 1000),
+                        isAllDay: false,
+                        category: "Work",
+                        customCategory: "",
+                        repeatOption: "None",
+                        reminderOption: "None",
+                        notes: "",
+                        participants: "",
+                      });
+                      setIsAddingEvent(true);
+                    }}
+                  >
+                    <Ionicons name="add-outline" size={24} color="#fff" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {!isAddingEvent ? (
+                <FlatList
+                  data={selectedDate && events[selectedDate] ? 
+                    [...events[selectedDate]].sort((a, b) => 
+                      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+                    ) : []}
+                  renderItem={renderEventItem}
+                  keyExtractor={(item) => item.id}
+                  style={eventStyles.eventList}
+                  ListEmptyComponent={
+                    <View style={eventStyles.emptyState}>
+                      <Ionicons name="calendar-outline" size={40} color="#fff" />
+                      <Text style={eventStyles.emptyText}>No events on this day</Text>
+                    </View>
+                  }
+                />
+              ) : (
+                <ScrollView contentContainerStyle={eventStyles.modalScrollView}>
+                  <TextInput
+                    style={globalStyles.input}
+                    placeholder="Event Title"
+                    placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                    value={eventData.title}
+                    onChangeText={(text) => setEventData(prev => ({ ...prev, title: text }))}
+                  />
+                  
+                  <TextInput
+                    style={[globalStyles.input, eventStyles.descriptionInput]}
+                    placeholder="Description"
+                    placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                    value={eventData.description}
+                    onChangeText={(text) => setEventData(prev => ({ ...prev, description: text }))}
+                    multiline
+                  />
+                  
+                  <View style={eventStyles.toggleContainer}>
+                    <Text style={eventStyles.toggleLabel}>All Day Event</Text>
+                    <Switch
+                      value={eventData.isAllDay}
+                      onValueChange={(value) => setEventData(prev => ({ ...prev, isAllDay: value }))}
+                      trackColor={{ false: "#555", true: "#5967EB" }}
+                      thumbColor="#fff"
+                    />
+                  </View>
+                  
+                  <View style={eventStyles.timeButtonContainer}>
+                    <TouchableOpacity
+                      style={eventStyles.timeButton}
+                      onPress={() => showDateTimePicker("startDate")}
+                    >
+                      <Ionicons name="calendar-outline" size={18} color="#fff" />
+                      <Text style={eventStyles.timeButtonText}>
+                        {eventData.startDate.toLocaleDateString()}
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    {!eventData.isAllDay && (
+                      <TouchableOpacity
+                        style={eventStyles.timeButton}
+                        onPress={() => showDateTimePicker("startTime")}
+                      >
+                        <Ionicons name="time-outline" size={18} color="#fff" />
+                        <Text style={eventStyles.timeButtonText}>
+                          {eventData.startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  
+                  <View style={eventStyles.timeButtonContainer}>
+                    <TouchableOpacity
+                      style={eventStyles.timeButton}
+                      onPress={() => showDateTimePicker("endDate")}
+                    >
+                      <Ionicons name="calendar-outline" size={18} color="#fff" />
+                      <Text style={eventStyles.timeButtonText}>
+                        {eventData.endDate.toLocaleDateString()}
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    {!eventData.isAllDay && (
+                      <TouchableOpacity
+                        style={eventStyles.timeButton}
+                        onPress={() => showDateTimePicker("endTime")}
+                      >
+                        <Ionicons name="time-outline" size={18} color="#fff" />
+                        <Text style={eventStyles.timeButtonText}>
+                          {eventData.endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  
+                  {/* Date/Time Pickers */}
+                  {dateTimePickers.startDate && (
+                    <DateTimePicker
+                      value={eventData.startDate}
+                      mode="date"
+                      display="default"
+                      onChange={(e, date) => handleDateTimeChange(e, date, "startDate")}
+                    />
+                  )}
+                  {dateTimePickers.startTime && (
+                    <DateTimePicker
+                      value={eventData.startTime}
+                      mode="time"
+                      display="default"
+                      onChange={(e, time) => handleDateTimeChange(e, time, "startTime")}
+                    />
+                  )}
+                  {dateTimePickers.endDate && (
+                    <DateTimePicker
+                      value={eventData.endDate}
+                      mode="date"
+                      display="default"
+                      onChange={(e, date) => handleDateTimeChange(e, date, "endDate")}
+                    />
+                  )}
+                  {dateTimePickers.endTime && (
+                    <DateTimePicker
+                      value={eventData.endTime}
+                      mode="time"
+                      display="default"
+                      onChange={(e, time) => handleDateTimeChange(e, time, "endTime")}
+                    />
+                  )}
+                  
+                  {/* Category Picker */}
+                  <View style={eventStyles.pickerContainer}>
+                    <Text style={eventStyles.pickerLabel}>Category</Text>
+                    <Picker
+                      selectedValue={eventData.category}
+                      onValueChange={(value) => setEventData(prev => ({ ...prev, category: value }))}
+                      style={eventStyles.picker}
+                      dropdownIconColor="#fff"
+                    >
+                      {EVENT_CATEGORIES.map((category) => (
+                        <Picker.Item 
+                          key={category.name} 
+                          label={category.name} 
+                          value={category.name} 
+                          color="#fff"
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                  
+                  {/* Repeat Options */}
+                  <TouchableOpacity
+                    style={eventStyles.collapsibleHeader}
+                    onPress={() => setIsRepeatCollapsed(!isRepeatCollapsed)}
+                  >
+                    <Text style={eventStyles.collapsibleHeaderText}>
+                      Repeat: {eventData.repeatOption}
+                    </Text>
+                    <Ionicons
+                      name={isRepeatCollapsed ? "chevron-down" : "chevron-up"}
+                      size={20}
+                      color="#fff"
+                    />
+                  </TouchableOpacity>
+                  
+                  {!isRepeatCollapsed && (
+                    <View style={eventStyles.pickerContainer}>
+                      <Picker
+                        selectedValue={eventData.repeatOption}
+                        onValueChange={(value) => setEventData(prev => ({ ...prev, repeatOption: value }))}
+                        style={eventStyles.picker}
+                        dropdownIconColor="#fff"
+                      >
+                        {REPEAT_OPTIONS.map((option) => (
+                          <Picker.Item 
+                            key={option} 
+                            label={option} 
+                            value={option} 
+                            color="#fff"
+                          />
+                        ))}
+                      </Picker>
+                    </View>
+                  )}
+                  
+                  {/* Reminder Options */}
+                  <TouchableOpacity
+                    style={eventStyles.collapsibleHeader}
+                    onPress={() => setIsReminderCollapsed(!isReminderCollapsed)}
+                  >
+                    <Text style={eventStyles.collapsibleHeaderText}>
+                      Reminder: {eventData.reminderOption}
+                    </Text>
+                    <Ionicons
+                      name={isReminderCollapsed ? "chevron-down" : "chevron-up"}
+                      size={20}
+                      color="#fff"
+                    />
+                  </TouchableOpacity>
+                  
+                  {!isReminderCollapsed && (
+                    <View style={eventStyles.pickerContainer}>
+                      <Picker
+                        selectedValue={eventData.reminderOption}
+                        onValueChange={(value) => setEventData(prev => ({ ...prev, reminderOption: value }))}
+                        style={eventStyles.picker}
+                        dropdownIconColor="#fff"
+                      >
+                        {REMINDER_OPTIONS.map((option) => (
+                          <Picker.Item 
+                            key={option} 
+                            label={option} 
+                            value={option} 
+                            color="#fff"
+                          />
+                        ))}
+                      </Picker>
+                    </View>
+                  )}
+                  
+                  <TextInput
+                    style={[globalStyles.input, eventStyles.descriptionInput]}
+                    placeholder="Notes"
+                    placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                    value={eventData.notes}
+                    onChangeText={(text) => setEventData(prev => ({ ...prev, notes: text }))}
+                    multiline
+                  />
+                  
+                  <TextInput
+                    style={globalStyles.input}
+                    placeholder="Participants (comma separated emails)"
+                    placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                    value={eventData.participants}
+                    onChangeText={(text) => setEventData(prev => ({ ...prev, participants: text }))}
+                  />
+                  
+                  <View style={globalStyles.modalFooter}>
+                    <TouchableOpacity
+                      style={[globalStyles.modalCancelButton, { flex: 1 }]}
+                      onPress={() => {
+                        if (selectedEvent) {
+                          setIsAddingEvent(false);
+                        } else {
+                          setIsEventModalVisible(false);
+                        }
+                      }}
+                    >
+                      <Text style={globalStyles.modalCancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[globalStyles.modalConfirmButton, { flex: 1 }]}
+                      onPress={saveEvent}
+                    >
+                      <Text style={globalStyles.modalConfirmButtonText}>
+                        {selectedEvent ? "Update" : "Save"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              )}
+              
               <TouchableOpacity
-                style={styles.addButton}
+                style={globalStyles.modalCloseButton}
                 onPress={() => {
-                  setSelectedEvent(null); // Reset selected event
-                  setEventTitle("");
-                  setEventDescription("");
-                  setStartDate(new Date(selectedDate));
-                  setStartTime(new Date());
-                  setEndDate(new Date(selectedDate));
-                  setEndTime(new Date());
-                  setIsAllDay(false);
-                  setEventCategory("Work");
-                  setCustomCategory("");
-                  setRepeatOption("None");
-                  setReminderOption("None");
-                  setNotes("");
-                  setParticipants("");
-                  setIsAddingEvent(true); 
+                  setIsEventModalVisible(false);
+                  setSelectedEvent(null);
+                  setIsAddingEvent(false);
                 }}
               >
-                <Ionicons name="add-outline" size={24} color="#26A480" />
+                <Ionicons name="close" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
-
-            {/* Event List (Visible only when not adding/editing) */}
-            {!isAddingEvent && (
-              <FlatList
-                data={selectedDate && events[selectedDate] ? sortEventsByTime(events[selectedDate]) : []}
-                renderItem={renderEventItem}
-                keyExtractor={(item) => item.id}
-                style={styles.eventList}
-              />
-            )}
-
-            {/* Event Form (Visible only when adding/editing) */}
-            {isAddingEvent && (
-              <ScrollView contentContainerStyle={styles.modalScrollView}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Event Title"
-                  value={eventTitle}
-                  onChangeText={setEventTitle}
-                />
-                <TextInput
-                  style={[styles.input, styles.descriptionInput]}
-                  placeholder="Description"
-                  value={eventDescription}
-                  onChangeText={setEventDescription}
-                  multiline
-                />
-                <View style={styles.toggleContainer}>
-                  <Text style={styles.toggleLabel}>All Day</Text>
-                  <Switch
-                    value={isAllDay}
-                    onValueChange={(value) => setIsAllDay(value)}
-                    trackColor={{ false: "#26A480", true: "#FF6B6B" }}
-                    thumbColor="#fff"
-                  />
-                </View>
-                <View style={styles.timeButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.timeButton}
-                    onPress={() => setShowStartDatePicker(true)}
-                  >
-                    <Text style={styles.timeButtonText}>
-                      Start Date: {startDate.toLocaleDateString()}
-                    </Text>
-                  </TouchableOpacity>
-                  {!isAllDay && (
-                    <TouchableOpacity
-                      style={styles.timeButton}
-                      onPress={() => setShowStartTimePicker(true)}
-                    >
-                      <Text style={styles.timeButtonText}>
-                        Start Time: {startTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <View style={styles.timeButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.timeButton}
-                    onPress={() => setShowEndDatePicker(true)}
-                  >
-                    <Text style={styles.timeButtonText}>
-                      End Date: {endDate.toLocaleDateString()}
-                    </Text>
-                  </TouchableOpacity>
-                  {!isAllDay && (
-                    <TouchableOpacity
-                      style={styles.timeButton}
-                      onPress={() => setShowEndTimePicker(true)}
-                    >
-                      <Text style={styles.timeButtonText}>
-                        End Time: {endTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {showStartDatePicker && (
-                  <DateTimePicker
-                    value={startDate}
-                    mode="date"
-                    display="default"
-                    onChange={(event, selectedDate) => handleDateTimeSelect(event, selectedDate, "startDate")}
-                  />
-                )}
-                {showStartTimePicker && (
-                  <DateTimePicker
-                    value={startTime}
-                    mode="time"
-                    display="default"
-                    onChange={(event, selectedTime) => handleDateTimeSelect(event, selectedTime, "startTime")}
-                  />
-                )}
-                {showEndDatePicker && (
-                  <DateTimePicker
-                    value={endDate}
-                    mode="date"
-                    display="default"
-                    onChange={(event, selectedDate) => handleDateTimeSelect(event, selectedDate, "endDate")}
-                  />
-                )}
-                {showEndTimePicker && (
-                  <DateTimePicker
-                    value={endTime}
-                    mode="time"
-                    display="default"
-                    onChange={(event, selectedTime) => handleDateTimeSelect(event, selectedTime, "endTime")}
-                  />
-                )}
-                <TouchableOpacity
-                  style={styles.collapsibleHeader}
-                  onPress={() => setIsRepeatCollapsed(!isRepeatCollapsed)}
-                >
-                  <Text style={styles.collapsibleHeaderText}>Repeat: {repeatOption}</Text>
-                  <Ionicons
-                    name={isRepeatCollapsed ? "chevron-down-outline" : "chevron-up-outline"}
-                    size={20}
-                    color="#26A480"
-                  />
-                </TouchableOpacity>
-                {!isRepeatCollapsed && (
-                  <Picker
-                    selectedValue={repeatOption}
-                    onValueChange={(itemValue) => setRepeatOption(itemValue)}
-                    style={styles.picker}
-                  >
-                    {REPEAT_OPTIONS.map((option) => (
-                      <Picker.Item key={option} label={option} value={option} />
-                    ))}
-                  </Picker>
-                )}
-                <TouchableOpacity
-                  style={styles.collapsibleHeader}
-                  onPress={() => setIsReminderCollapsed(!isReminderCollapsed)}
-                >
-                  <Text style={styles.collapsibleHeaderText}>Reminder: {reminderOption}</Text>
-                  <Ionicons
-                    name={isReminderCollapsed ? "chevron-down-outline" : "chevron-up-outline"}
-                    size={20}
-                    color="#26A480"
-                  />
-                </TouchableOpacity>
-                {!isReminderCollapsed && (
-                  <Picker
-                    selectedValue={reminderOption}
-                    onValueChange={(itemValue) => setReminderOption(itemValue)}
-                    style={styles.picker}
-                  >
-                    {REMINDER_OPTIONS.map((option) => (
-                      <Picker.Item key={option} label={option} value={option} />
-                    ))}
-                  </Picker>
-                )}
-                <TextInput
-                  style={[styles.input, styles.descriptionInput]}
-                  placeholder="Notes"
-                  value={notes}
-                  onChangeText={setNotes}
-                  multiline
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Participants (comma-separated emails)"
-                  value={participants}
-                  onChangeText={setParticipants}
-                />
-                <TouchableOpacity style={styles.saveButton} onPress={saveEvent}>
-                  <Text style={styles.saveButtonText}>
-                    {selectedEvent ? "Update Event" : "Save Event"}
-                  </Text>
-                </TouchableOpacity>
-              </ScrollView>
-            )}
-
-            {/* Close Button */}
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => {
-                setIsEventModalVisible(false);
-                setSelectedEvent(null); // Reset selected event
-                setIsAddingEvent(false); // Reset adding event state
-              }}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </LinearGradient>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F5F5", paddingBottom: 20, paddingTop: 60 },
-  infoContainer: { padding: 15, alignItems: "center", marginBottom: 10 },
-  infoText: { fontSize: 16, textAlign: "center", color: "#666" },
-  syncButton: {
-    flexDirection: "row",
-    backgroundColor: "#26A480",
-    padding: 12,
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "center",
-    marginBottom: 10,
-  },
-  syncText: { color: "#fff", fontSize: 16, marginLeft: 5 },
-  calendarContainer: { margin: 10, backgroundColor: "#fff", borderRadius: 10, padding: 10 },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 20,
-    width: "90%",
-    maxHeight: "80%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  addButton: {
-    padding: 5,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-  },
-  descriptionInput: {
-    height: 100,
-    textAlignVertical: "top",
-  },
-  timeButtonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  timeButton: {
-    backgroundColor: "#26A480",
-    padding: 10,
-    borderRadius: 10,
-    alignItems: "center",
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  timeButtonText: {
-    color: "#fff",
-    fontSize: 16,
-  },
-  toggleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  toggleLabel: {
-    fontSize: 16,
-    color: "#333",
-  },
-  picker: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  saveButton: {
-    backgroundColor: "#26A480",
-    padding: 12,
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-  },
-  saveButtonText: { color: "#fff", fontSize: 16 },
-  closeButton: {
-    padding: 10,
-    alignItems: "center",
-  },
-  closeButtonText: {
-    color: "#26A480",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  eventList: {
-    marginBottom: 10,
-  },
-  eventItem: {
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 5,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  eventDetails: {
-    flex: 1,
-  },
-  eventTitle: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  eventTime: {
-    fontSize: 14,
-    color: "#fff",
-  },
-  deleteButton: {
-    padding: 5,
-  },
-  collapsibleHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  collapsibleHeaderText: {
-    fontSize: 16,
-    color: "#333",
-  },
-  modalScrollView: {
-    flexGrow: 1,
-  },
-});

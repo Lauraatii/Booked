@@ -1,4 +1,4 @@
-import { StyleSheet, TouchableOpacity, Text } from "react-native";
+import { StyleSheet, TouchableOpacity, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 export const globalStyles = StyleSheet.create({
@@ -26,7 +26,7 @@ export const globalStyles = StyleSheet.create({
     marginBottom: 40,
   },
   subtitle: {
-    color: "#D9FFF5",
+    color: "#5967EB",
     fontSize: 16,
     textAlign: "center",
     marginBottom: 20,
@@ -100,10 +100,10 @@ export const globalStyles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 20,
     borderWidth: 3,
-    borderColor: "#7DFFE3",
+    borderColor: "#5967EB",
   },
   uploadText: {
-    color: "#7DFFE3",
+    color: "#5967EB",
     fontSize: 14,
     textAlign: "center",
     marginBottom: 15,
@@ -170,7 +170,7 @@ export const globalStyles = StyleSheet.create({
   },
   sectionText: {
     fontSize: 16,
-    color: "#7DFFE3",
+    color: "#5967EB",
     fontWeight: "600",
   },
   sectionTextActive: {
@@ -194,7 +194,7 @@ export const globalStyles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 14,
-    color: "#7DFFE3",
+    color: "#5967EB",
     fontWeight: "600",
   },
   categoryTextActive: {
@@ -219,7 +219,7 @@ export const globalStyles = StyleSheet.create({
   },
   eventLocation: {
     fontSize: 14,
-    color: "#D9FFF5",
+    color: "#5967EB",
     marginTop: 5,
   },
   eventAttendees: {
@@ -378,7 +378,6 @@ export const globalStyles = StyleSheet.create({
     marginBottom: 16,
   },
   modalButtons: {
-   
     gap: 12,
     marginTop: 10,
   },
@@ -404,12 +403,209 @@ export const globalStyles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: "#D9FFF5",
+    color: "#fff",
     textAlign: "center",
     marginTop: 10,
   },
   groupList: {
     paddingBottom: 20,
+  },
+});
+
+// Add these to your existing globalStyles.ts
+export const eventStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    backgroundColor: "#100f0f",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  syncStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    backgroundColor: 'rgba(16, 15, 15, 0.9)',
+    borderLeftWidth: 4,
+  },
+  errorStatus: {
+    borderLeftColor: '#FF6B6B',
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+  },
+  successStatus: {
+    borderLeftColor: '#26A480',
+    backgroundColor: 'rgba(38, 164, 128, 0.1)',
+  },
+  infoStatus: {
+    borderLeftColor: '#5967EB',
+    backgroundColor: 'rgba(89, 103, 235, 0.1)',
+  },
+  syncStatusText: {
+    color: '#fff',
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 14,
+  },
+  syncButton: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(89, 77, 168, 0.5)',
+    padding: 12,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(125, 255, 227, 0.2)',
+  },
+  syncText: {
+    color: '#fff',
+    fontSize: 16,
+    marginLeft: 10,
+    fontWeight: '500',
+  },
+  calendarContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  eventList: {
+    marginBottom: 10,
+    maxHeight: 300,
+  },
+  eventItem: {
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  eventDetails: {
+    flex: 1,
+  },
+  eventTitle: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  eventTime: {
+    fontSize: 14,
+    color: "#fff",
+    marginBottom: 3,
+  },
+  eventCategory: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontStyle: "italic",
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  modalScrollView: {
+    paddingBottom: 20,
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 15,
+    paddingHorizontal: 5,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    color: "#fff",
+  },
+  timeButtonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
+  timeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(89, 77, 168, 0.3)",
+    padding: 12,
+    borderRadius: 10,
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: "rgba(125, 255, 227, 0.2)",
+  },
+  timeButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: "rgba(125, 255, 227, 0.3)",
+    borderRadius: 10,
+    marginBottom: 15,
+    overflow: "hidden",
+  },
+  pickerLabel: {
+    color: "#fff",
+    fontSize: 14,
+    marginBottom: 5,
+    paddingLeft: 10,
+  },
+  picker: {
+    backgroundColor: "rgba(16, 15, 15, 0.8)",
+    color: "#fff",
+  },
+  collapsibleHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "rgba(89, 77, 168, 0.3)",
+    borderRadius: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "rgba(125, 255, 227, 0.2)",
+  },
+  collapsibleHeaderText: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  descriptionInput: {
+    height: 100,
+    textAlignVertical: "top",
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 30,
+  },
+  emptyText: {
+    color: "#fff",
+    fontSize: 16,
+    marginTop: 10,
+    textAlign: "center",
+  },
+  addButton: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: "rgba(125, 255, 227, 0.1)",
   },
 });
 
@@ -433,6 +629,7 @@ export const GradientButton = ({ children, onPress, style = {} }) => {
     </TouchableOpacity>
   );
 };
+
 export const ModalButton = ({ children, onPress, type = "confirm", style = {} }) => {
   return (
     <TouchableOpacity
