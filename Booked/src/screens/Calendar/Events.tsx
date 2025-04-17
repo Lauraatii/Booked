@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   FlatList,
   Switch,
   ScrollView,
+  Animated,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
@@ -22,6 +24,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { globalStyles, eventStyles } from "../../styles/globalStyles";
 
 // Type definitions
+type EventSource = 'local' | 'cloud';
+
 type Event = {
   id: string;
   title: string;
@@ -35,6 +39,7 @@ type Event = {
   reminderOption?: string;
   notes?: string;
   participants?: string[];
+  source?: EventSource;
 };
 
 type EventData = {
@@ -60,6 +65,12 @@ type DateTimePickerState = {
   endTime: boolean;
 };
 
+type SyncStatus = {
+  type: 'error' | 'success' | 'info';
+  message: string;
+  id: string;
+};
+
 const EVENT_CATEGORIES = [
   { name: "Work", color: "#5967EB" },
   { name: "Personal", color: "#FF6B6B" },
@@ -79,9 +90,116 @@ const REMINDER_OPTIONS = [
   "1 day before",
 ];
 
+const Notification = ({ status, onClose }: { status: SyncStatus, onClose: () => void }) => {
+  // Using useRef to maintain consistent animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(-50)).current;
+
+  useEffect(() => {
+    // Reset animation values each time the notification appears
+    fadeAnim.setValue(0);
+    slideAnim.setValue(-50);
+    
+    // Slide in animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Auto-dismiss after 5 seconds
+    const timer = setTimeout(() => {
+      handleClose();
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [status.id]);
+
+  // Extracted close animation to a separate function
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: -50,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => onClose());
+  };
+
+  const getStatusStyle = () => {
+    switch (status.type) {
+      case 'error':
+        return eventStyles.errorStatus;
+      case 'success':
+        return eventStyles.successStatus;
+      case 'info':
+        return eventStyles.infoStatus;
+      default:
+        return eventStyles.infoStatus;
+    }
+  };
+
+  const getStatusIcon = () => {
+    switch (status.type) {
+      case 'error':
+        return "warning";
+      case 'success':
+        return "checkmark-circle";
+      case 'info':
+        return "information-circle";
+      default:
+        return "information-circle";
+    }
+  };
+
+  return (
+    <Animated.View
+      style={[
+        eventStyles.syncStatus,
+        getStatusStyle(),
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+          elevation: 10,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          zIndex: 10,
+        },
+      ]}
+    >
+      <Ionicons 
+        name={getStatusIcon()} 
+        size={24} 
+        color="#fff" 
+      />
+      <Text style={eventStyles.syncStatusText}>{status.message}</Text>
+      <TouchableOpacity 
+        onPress={handleClose}
+        style={eventStyles.closeStatusButton}
+      >
+        <Ionicons name="close" size={20} color="#fff" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
 export default function Events({ navigation }: { navigation: any }) {
   const [loading, setLoading] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<{type: string, message: string} | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [events, setEvents] = useState<{[key: string]: Event[]}>({});
   const [isEventModalVisible, setIsEventModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -132,10 +250,7 @@ export default function Events({ navigation }: { navigation: any }) {
       const { status } = await CalendarAPI.requestCalendarPermissionsAsync();
       
       if (status !== 'granted') {
-        setSyncStatus({
-          type: "error",
-          message: "Calendar permission is required to sync events"
-        });
+        showSyncStatus("error", "Calendar permission is required to sync events");
         return false;
       }
 
@@ -143,14 +258,24 @@ export default function Events({ navigation }: { navigation: any }) {
       return true;
     } catch (error) {
       console.error("Error requesting calendar permission:", error);
-      setSyncStatus({
-        type: "error",
-        message: "Failed to request calendar permission"
-      });
+      showSyncStatus("error", "Failed to request calendar permission");
       return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const showSyncStatus = (type: 'error' | 'success' | 'info', message: string) => {
+    const status: SyncStatus = {
+      type,
+      message,
+      id: Date.now().toString()
+    };
+    setSyncStatus(status);
+  };
+
+  const dismissSyncStatus = () => {
+    setSyncStatus(null);
   };
 
   const showDateTimePicker = (type: keyof DateTimePickerState) => {
@@ -177,33 +302,40 @@ export default function Events({ navigation }: { navigation: any }) {
       setLoading(true);
       setSyncStatus(null);
 
+      // First request calendar permissions if we don't have them
       if (!hasCalendarPermission) {
         const permissionGranted = await requestCalendarPermission();
         if (!permissionGranted) return;
       }
 
-      // Get all calendars (including iCloud)
+      // Request calendar sharing permission
+      try {
+        const { status } = await CalendarAPI.requestCalendarPermissionsAsync();
+        if (status !== 'granted') {
+          showSyncStatus("error", "Calendar sharing permission is required");
+          return;
+        }
+      } catch (error) {
+        console.error("Error requesting calendar sharing permission:", error);
+        showSyncStatus("error", "Failed to request calendar sharing permission");
+        return;
+      }
+
       const calendars = await CalendarAPI.getCalendarsAsync(CalendarAPI.EntityTypes.EVENT);
-      
-      // Find iCloud calendars (they typically have 'iCloud' in the source name)
       const iCloudCalendars = calendars.filter(cal => 
         cal.source && cal.source.name.includes('iCloud')
       );
 
       if (iCloudCalendars.length === 0) {
-        setSyncStatus({
-          type: "error",
-          message: "No iCloud calendars found. Please make sure you're signed in to iCloud."
-        });
+        showSyncStatus("error", "No iCloud calendars found. Please make sure you're signed in to iCloud.");
         return;
       }
 
       const startDate = new Date();
       const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30); // Sync next 30 days
+      endDate.setDate(endDate.getDate() + 30);
 
-      // Get events from all iCloud calendars
-      let allEvents: Event[] = [];
+      let cloudEvents: Event[] = [];
       
       for (const calendar of iCloudCalendars) {
         try {
@@ -213,7 +345,7 @@ export default function Events({ navigation }: { navigation: any }) {
             endDate
           );
 
-          const formattedEvents = events.map(event => ({
+          const formattedEvents: Event[] = events.map(event => ({
             id: event.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             title: event.title || "Untitled Event",
             startDate: event.startDate ? new Date(event.startDate).toISOString() : new Date().toISOString(),
@@ -222,34 +354,38 @@ export default function Events({ navigation }: { navigation: any }) {
             isBusy: true,
             category: "Other",
             allDay: event.allDay || false,
+            source: 'cloud'
           }));
 
-          allEvents = [...allEvents, ...formattedEvents];
+          cloudEvents = [...cloudEvents, ...formattedEvents];
         } catch (error) {
           console.error(`Error fetching events from calendar ${calendar.title}:`, error);
         }
       }
 
-      if (allEvents.length === 0) {
-        setSyncStatus({
-          type: "info",
-          message: "No events found in your iCloud calendars for the next 30 days."
-        });
+      if (cloudEvents.length === 0) {
+        showSyncStatus("info", "No events found in your iCloud calendars for the next 30 days.");
         return;
       }
 
-      await storeAvailabilityInFirestore(allEvents);
-      setSyncStatus({
-        type: "success",
-        message: `Synced ${allEvents.length} events from ${iCloudCalendars.length} iCloud calendars!`
-      });
+      const currentEvents = Object.values(events).flat();
+      const localEvents = currentEvents.filter(e => e.source === 'local');
+      const existingCloudEvents = currentEvents.filter(e => e.source === 'cloud');
+      
+      const mergedEvents = [
+        ...localEvents,
+        ...cloudEvents.map(cloudEvent => {
+          const existingEvent = existingCloudEvents.find(e => e.id === cloudEvent.id);
+          return existingEvent ? {...existingEvent, ...cloudEvent} : cloudEvent;
+        })
+      ];
+
+      await storeAvailabilityInFirestore(mergedEvents);
+      showSyncStatus("success", `Success! Synced ${cloudEvents.length} events from ${iCloudCalendars.length} calendars`);
       
     } catch (error) {
       console.error("iCloud calendar sync error:", error);
-      setSyncStatus({
-        type: "error",
-        message: "Failed to sync iCloud calendar. Please check your iCloud settings."
-      });
+      showSyncStatus("error", "Failed to sync iCloud calendar. Please check your iCloud settings.");
     } finally {
       setLoading(false);
     }
@@ -339,6 +475,7 @@ export default function Events({ navigation }: { navigation: any }) {
         reminderOption: eventData.reminderOption,
         notes: eventData.notes,
         participants: eventData.participants.split(",").map(email => email.trim()),
+        source: 'local'
       };
 
       const docRef = doc(db, "users", user.uid);
@@ -392,10 +529,16 @@ export default function Events({ navigation }: { navigation: any }) {
         { 
           backgroundColor: EVENT_CATEGORIES.find(cat => cat.name === item.category)?.color || "#888",
           borderLeftWidth: 4,
-          borderLeftColor: "#2a0b4e"
+          borderLeftColor: "#2a0b4e",
+          opacity: item.source === 'cloud' ? 0.8 : 1
         }
       ]}
       onPress={() => {
+        if (item.source === 'cloud') {
+          Alert.alert("Info", "This is a cloud-synced event. Please edit it in your calendar app.");
+          return;
+        }
+        
         setSelectedEvent(item);
         setEventData({
           title: item.title,
@@ -422,13 +565,18 @@ export default function Events({ navigation }: { navigation: any }) {
           {new Date(item.endDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </Text>
         {item.category && <Text style={eventStyles.eventCategory}>{item.category}</Text>}
+        {item.source === 'cloud' && (
+          <Ionicons name="cloud" size={16} color="#fff" style={{ marginTop: 4 }} />
+        )}
       </View>
-      <TouchableOpacity
-        style={eventStyles.deleteButton}
-        onPress={() => deleteEvent(item.id)}
-      >
-        <Ionicons name="trash-outline" size={20} color="#fff" />
-      </TouchableOpacity>
+      {item.source !== 'cloud' && (
+        <TouchableOpacity
+          style={eventStyles.deleteButton}
+          onPress={() => deleteEvent(item.id)}
+        >
+          <Ionicons name="trash-outline" size={20} color="#fff" />
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 
@@ -440,25 +588,6 @@ export default function Events({ navigation }: { navigation: any }) {
           <Text style={eventStyles.headerTitle}>My Calendar</Text>
           <View style={{ width: 24 }} />
         </View>
-
-        {/* Sync Status */}
-        {syncStatus && (
-          <View style={[
-            eventStyles.syncStatus,
-            syncStatus.type === "error" ? eventStyles.errorStatus : 
-            syncStatus.type === "success" ? eventStyles.successStatus : eventStyles.infoStatus
-          ]}>
-            <Ionicons 
-              name={
-                syncStatus.type === "error" ? "warning" : 
-                syncStatus.type === "success" ? "checkmark-circle" : "information-circle"
-              } 
-              size={20} 
-              color="#fff" 
-            />
-            <Text style={eventStyles.syncStatusText}>{syncStatus.message}</Text>
-          </View>
-        )}
 
         {/* Sync Button */}
         <TouchableOpacity 
@@ -475,6 +604,22 @@ export default function Events({ navigation }: { navigation: any }) {
             </View>
           )}
         </TouchableOpacity>
+
+        {/* Notification - positioned absolutely to appear over other content */}
+        {syncStatus && (
+          <View style={{
+            position: 'absolute',
+            top: 70,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+          }}>
+            <Notification 
+              status={syncStatus} 
+              onClose={dismissSyncStatus} 
+            />
+          </View>
+        )}
 
         {/* Calendar View */}
         <View style={eventStyles.calendarContainer}>
