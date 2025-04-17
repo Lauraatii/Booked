@@ -433,40 +433,41 @@ export const eventStyles = StyleSheet.create({
   syncStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 16,
     borderRadius: 8,
     marginBottom: 15,
-    backgroundColor: 'rgba(16, 15, 15, 0.9)',
-    borderLeftWidth: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
   },
   errorStatus: {
-    borderLeftColor: '#FF6B6B',
+    borderColor: '#FF6B6B',
     backgroundColor: 'rgba(255, 107, 107, 0.1)',
   },
   successStatus: {
-    borderLeftColor: '#26A480',
-    backgroundColor: 'rgba(38, 164, 128, 0.1)',
+    borderColor: '#5967EB',
+    backgroundColor: 'rgba(89, 103, 235, 0.1)',
   },
   infoStatus: {
-    borderLeftColor: '#5967EB',
+    borderColor: '#5967EB',
     backgroundColor: 'rgba(89, 103, 235, 0.1)',
   },
   syncStatusText: {
     color: '#fff',
-    marginLeft: 10,
+    marginLeft: 12,
     flex: 1,
     fontSize: 14,
+    lineHeight: 20,
   },
   syncButton: {
     flexDirection: 'row',
     backgroundColor: 'rgba(89, 77, 168, 0.5)',
-    padding: 12,
-    borderRadius: 25,
+    padding: 14,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(125, 255, 227, 0.2)',
+    borderColor: 'rgba(89, 77, 168, 0.8)',
   },
   syncText: {
     color: '#fff',
@@ -547,7 +548,7 @@ export const eventStyles = StyleSheet.create({
     borderRadius: 10,
     marginHorizontal: 5,
     borderWidth: 1,
-    borderColor: "rgba(125, 255, 227, 0.2)",
+    borderColor: "rgba(89, 77, 168, 0.5)",
   },
   timeButtonText: {
     color: "#fff",
@@ -556,7 +557,7 @@ export const eventStyles = StyleSheet.create({
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: "rgba(125, 255, 227, 0.3)",
+    borderColor: "rgba(89, 77, 168, 0.5)",
     borderRadius: 10,
     marginBottom: 15,
     overflow: "hidden",
@@ -580,7 +581,7 @@ export const eventStyles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "rgba(125, 255, 227, 0.2)",
+    borderColor: "rgba(89, 77, 168, 0.5)",
   },
   collapsibleHeaderText: {
     color: "#fff",
@@ -604,7 +605,7 @@ export const eventStyles = StyleSheet.create({
   addButton: {
     padding: 6,
     borderRadius: 20,
-    backgroundColor: "rgba(125, 255, 227, 0.1)",
+    backgroundColor: "rgba(89, 103, 235, 0.2)",
   },
 });
 

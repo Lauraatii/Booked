@@ -139,7 +139,7 @@ const ProfileScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('Settings')}
             style={[globalStyles.createGroupButton, { padding: 10 }]}
           >
-            <Ionicons name="settings" size={20} color="#7DFFE3" />
+            <Ionicons name="settings" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
 
@@ -162,13 +162,13 @@ const ProfileScreen = ({ navigation }) => {
           <Text style={[globalStyles.title, { 
             fontSize: 28,
             marginBottom: 5,
-            color: '#7DFFE3'
+            color: '#fff'
           }]}>
             {userData.name || 'No name'}
           </Text>
 
           {userData.birthday && (
-            <Text style={[globalStyles.subtitle, { color: '#D9FFF5' }]}>
+            <Text style={[globalStyles.subtitle, { color: '#fff' }]}>
               {calculateAge(userData.birthday)} years old
             </Text>
           )}
@@ -177,8 +177,8 @@ const ProfileScreen = ({ navigation }) => {
         {/* About Me Section */}
         <View style={[globalStyles.eventCard, { marginBottom: 20 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-            <Ionicons name="information-circle" size={24} color="#7DFFE3" style={{ marginRight: 10 }} />
-            <Text style={[globalStyles.eventTitle, { color: '#7DFFE3' }]}>About Me</Text>
+            <Ionicons name="information-circle" size={24} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={[globalStyles.eventTitle, { color: '#fff' }]}>About Me</Text>
           </View>
           <Text style={[globalStyles.text, { lineHeight: 22 }]}>
             {userData.bio || 'No bio available. Tap "Edit Profile" to add one.'}
@@ -188,10 +188,10 @@ const ProfileScreen = ({ navigation }) => {
         {/* Status Section */}
         <View style={[globalStyles.eventCard, { marginBottom: 20 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-            <Ionicons name="ellipse" size={24} color="#7DFFE3" style={{ marginRight: 10 }} />
-            <Text style={[globalStyles.eventTitle, { color: '#7DFFE3' }]}>Status</Text>
+            <Ionicons name="ellipse" size={24} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={[globalStyles.eventTitle, { color: '#fff' }]}>Status</Text>
           </View>
-          <Text style={[globalStyles.text, { color: '#D9FFF5' }]}>
+          <Text style={[globalStyles.text, { color: '#fff' }]}>
             {userData.status || 'No status set'}
           </Text>
         </View>
@@ -200,8 +200,8 @@ const ProfileScreen = ({ navigation }) => {
         {userData.interests && userData.interests.length > 0 ? (
           <View style={[globalStyles.eventCard, { marginBottom: 20 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-              <Ionicons name="heart" size={24} color="#7DFFE3" style={{ marginRight: 10 }} />
-              <Text style={[globalStyles.eventTitle, { color: '#7DFFE3' }]}>My Interests</Text>
+              <Ionicons name="heart" size={24} color="#fff" style={{ marginRight: 10 }} />
+              <Text style={[globalStyles.eventTitle, { color: '#fff' }]}>My Interests</Text>
             </View>
             <View style={[globalStyles.interestsContainer, { justifyContent: 'flex-start' }]}>
               {userData.interests.map((interest, index) => (
@@ -218,7 +218,7 @@ const ProfileScreen = ({ navigation }) => {
                     }
                   ]}
                 >
-                  <Text style={[globalStyles.interestText, { color: '#7DFFE3' }]}>
+                  <Text style={[globalStyles.interestText, { color: '#fff' }]}>
                     {interest}
                   </Text>
                 </View>
@@ -228,10 +228,10 @@ const ProfileScreen = ({ navigation }) => {
         ) : (
           <View style={[globalStyles.eventCard, { marginBottom: 20 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-              <Ionicons name="heart" size={24} color="#7DFFE3" style={{ marginRight: 10 }} />
-              <Text style={[globalStyles.eventTitle, { color: '#7DFFE3' }]}>My Interests</Text>
+              <Ionicons name="heart" size={24} color="#fff" style={{ marginRight: 10 }} />
+              <Text style={[globalStyles.eventTitle, { color: '#fff' }]}>My Interests</Text>
             </View>
-            <Text style={[globalStyles.text, { color: '#D9FFF5' }]}>
+            <Text style={[globalStyles.text, { color: '#fff' }]}>
               No interests added yet. Edit profile to add some!
             </Text>
           </View>

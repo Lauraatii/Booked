@@ -437,9 +437,6 @@ export default function Events({ navigation }: { navigation: any }) {
       <View style={eventStyles.container}>
         {/* Header */}
         <View style={eventStyles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#7DFFE3" />
-          </TouchableOpacity>
           <Text style={eventStyles.headerTitle}>My Calendar</Text>
           <View style={{ width: 24 }} />
         </View>

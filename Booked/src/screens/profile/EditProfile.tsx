@@ -146,7 +146,7 @@ const EditProfile = ({ navigation }) => {
     return (
       <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
         <View style={globalStyles.loadingContainer}>
-          <ActivityIndicator size="large" color="#7DFFE3" />
+          <ActivityIndicator size="large" color="#fff" />
         </View>
       </LinearGradient>
     );
@@ -160,7 +160,7 @@ const EditProfile = ({ navigation }) => {
           <RefreshControl 
             refreshing={refreshing} 
             onRefresh={onRefresh}
-            tintColor="#7DFFE3"
+            tintColor="#fff"
           />
         }
       >
@@ -170,7 +170,7 @@ const EditProfile = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             style={[globalStyles.createGroupButton, { padding: 10 }]}
           >
-            <Ionicons name="arrow-back" size={20} color="#7DFFE3" />
+            <Ionicons name="arrow-back" size={20} color="#fff" />
           </TouchableOpacity>
           <Text style={globalStyles.headerTitle}>Edit Profile</Text>
           <View style={{ width: 40 }} /> {/* Spacer for alignment */}
@@ -196,7 +196,7 @@ const EditProfile = ({ navigation }) => {
               position: 'absolute',
               bottom: 10,
               right: 10,
-              backgroundColor: 'rgba(125, 255, 227, 0.8)',
+              backgroundColor: '#fff',
               borderRadius: 20,
               padding: 8,
             }}>
@@ -208,8 +208,8 @@ const EditProfile = ({ navigation }) => {
         {/* Name Field */}
         <View style={[globalStyles.eventCard, { marginBottom: 20 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-            <Ionicons name="person" size={24} color="#7DFFE3" style={{ marginRight: 10 }} />
-            <Text style={[globalStyles.eventTitle, { color: '#7DFFE3' }]}>Name</Text>
+            <Ionicons name="person" size={24} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={[globalStyles.eventTitle, { color: '#fff' }]}>Name</Text>
           </View>
           <TextInput
             style={[globalStyles.input, { color: '#fff' }]}
@@ -223,8 +223,8 @@ const EditProfile = ({ navigation }) => {
         {/* Bio Field */}
         <View style={[globalStyles.eventCard, { marginBottom: 20 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-            <Ionicons name="document-text" size={24} color="#7DFFE3" style={{ marginRight: 10 }} />
-            <Text style={[globalStyles.eventTitle, { color: '#7DFFE3' }]}>About Me</Text>
+            <Ionicons name="document-text" size={24} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={[globalStyles.eventTitle, { color: '#fff' }]}>About Me</Text>
           </View>
           <TextInput
             style={[globalStyles.input, { 
@@ -243,8 +243,8 @@ const EditProfile = ({ navigation }) => {
         {/* Status Field */}
         <View style={[globalStyles.eventCard, { marginBottom: 20 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-            <Ionicons name="ellipse" size={24} color="#7DFFE3" style={{ marginRight: 10 }} />
-            <Text style={[globalStyles.eventTitle, { color: '#7DFFE3' }]}>Status</Text>
+            <Ionicons name="ellipse" size={24} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={[globalStyles.eventTitle, { color: '#fff' }]}>Status</Text>
           </View>
           <TextInput
             style={[globalStyles.input, { color: '#fff' }]}
