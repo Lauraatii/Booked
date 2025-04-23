@@ -227,6 +227,15 @@ export const globalStyles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.7)",
     marginTop: 5,
   },
+  modalText: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  eventText: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 14,
+  },
   // Unified Modal Styles
   modalOverlay: {
     flex: 1,

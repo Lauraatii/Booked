@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,8 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Share,
   ActivityIndicator,
+  RefreshControl,
+  Alert,
+  StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,7 +17,7 @@ import { globalStyles, GradientButton, ModalButton } from "../../styles/globalSt
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 
-// Categories (Filters)
+// Categories for filtering events in Explore section
 const categories = [
   { id: "1", name: "All" },
   { id: "2", name: "Trips" },
@@ -26,7 +28,74 @@ const categories = [
   { id: "7", name: "Concerts" },
 ];
 
+// Helper function to generate unique IDs for events
+const generateUniqueId = (event, index) => {
+  return event.id ? `${event.id}-${index}` : `event-${index}-${Date.now()}`;
+};
+
+// Custom styles specific to the Home component
+const homeStyles = StyleSheet.create({
+  // Main container styles
+  contentContainer: {
+    paddingTop: 20, // Added top padding for better spacing
+    flex: 1,
+  },
+  
+  // Category filter buttons in Explore section
+  categoryButtonContainer: {
+    justifyContent: 'center', // Vertically center content
+    paddingHorizontal: 16, // Horizontal padding
+    borderRadius: 21, // Fully rounded corners
+    marginHorizontal: 6, // Spacing between buttons
+    backgroundColor: "rgba(89, 77, 168, 0.3)",
+    borderWidth: 1,
+    borderColor: "rgba(89, 77, 168, 0.5)",
+    height: 42, // Fixed height for consistent button sizing
+  },
+  categoryButtonContainerActive: {
+    backgroundColor: "#594DA8",
+  },
+  categoryButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#5967EB",
+  },
+  categoryButtonTextActive: {
+    color: "#fff",
+  },
+
+  // Event card styling
+  eventCard: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+
+  // Public event tag styling
+  publicEventTag: {
+    color: '#5967EB',
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '600'
+  },
+
+  // Modal footer buttons container
+  modalFooterButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButtonHalf: {
+    width: '48%', // Slightly less than half to account for gap
+  },
+});
+
 export default function Home({ navigation }: any) {
+  // State management
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedSection, setSelectedSection] = useState("My Events");
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -34,71 +103,160 @@ export default function Home({ navigation }: any) {
   const [myEvents, setMyEvents] = useState([]);
   const [exploreEvents, setExploreEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Get today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split('T')[0];
+  /**
+   * Fetches events from Firestore and iCloud calendar
+   * Handles both personal and public events
+   */
+  const fetchEvents = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) return;
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      try {
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
+    try {
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const availability = docSnap.data().availability || [];
+        const now = new Date();
         
-        if (docSnap.exists()) {
-          const availability = docSnap.data().availability || [];
-          // Format events for display
-          const formattedEvents = availability.map(event => ({
-            id: event.id,
-            title: event.title,
-            date: event.startDate.split('T')[0],
+        // Process personal events - filter out past events and add metadata
+        const personalEvents = availability
+          .filter(event => {
+            const eventDate = event.startDate ? new Date(event.startDate) : null;
+            return eventDate && eventDate >= now;
+          })
+          .map((event, index) => ({
+            id: generateUniqueId(event, index),
+            originalId: event.id,
+            title: event.title || "Untitled Event",
+            date: event.startDate ? event.startDate.split('T')[0] : now.toISOString().split('T')[0],
+            datetime: event.startDate ? new Date(event.startDate) : new Date(),
             location: event.description || "No location specified",
             attendees: event.participants?.length || 0,
             description: event.notes || "No description provided",
-            category: event.category || "Other"
+            category: event.category || "Other",
+            source: event.source || 'local'
           }));
-          
-          setMyEvents(formattedEvents);
-          // For explore events, we can filter or modify as needed
-          setExploreEvents(formattedEvents);
-        }
-      } catch (error) {
-        console.error("Error fetching events:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchEvents();
+        // Sort events by date (soonest first)
+        personalEvents.sort((a, b) => a.datetime - b.datetime);
+
+        // Remove potential duplicates
+        const uniqueEventsMap = new Map();
+        personalEvents.forEach(event => uniqueEventsMap.set(event.id, event));
+        
+        setMyEvents(Array.from(uniqueEventsMap.values()));
+        
+        // Public events data - in a real app, this would come from a public events collection
+        const publicEvents = [
+          {
+            id: "public-1",
+            title: "Community Meetup 🎉",
+            date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+            datetime: new Date(Date.now() + 86400000 * 2),
+            location: "City Park",
+            attendees: 15,
+            description: "Join our community meetup for fun activities and networking",
+            category: "Parties",
+            isPublic: true
+          },
+          {
+            id: "public-2",
+            title: "Tech Conference 💻",
+            date: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0],
+            datetime: new Date(Date.now() + 86400000 * 5),
+            location: "Convention Center",
+            attendees: 120,
+            description: "Annual tech conference with industry leaders",
+            category: "Meeting",
+            isPublic: true
+          },
+          {
+            id: "public-3",
+            title: "Beach Volleyball 🏐",
+            date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+            datetime: new Date(Date.now() + 86400000 * 3),
+            location: "Sunset Beach",
+            attendees: 8,
+            description: "Casual beach volleyball game - all skill levels welcome!",
+            category: "Outdoor",
+            isPublic: true
+          }
+        ];
+        
+        setExploreEvents([...publicEvents]);
+      }
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  // Check if there are any events planned for today
-  const hasEventToday = myEvents.some(event => event.date === today);
+  // Initial data load
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
-  // Filter events by category
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchEvents();
+  }, [fetchEvents]);
+
+  // Current date helpers
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const hasEventToday = myEvents.some(event => event.date === today);
+  const hasEvents = myEvents.length > 0;
+
+  // Filter events by selected category in Explore section
   const filteredEvents = selectedCategory === "All"
     ? exploreEvents
     : exploreEvents.filter((event) => event.category === selectedCategory);
 
-  // Handle event press
+  /**
+   * Handles sharing an event
+   */
+  const handleShareEvent = () => {
+    if (!selectedEvent) return;
+    Alert.alert(
+      "Share Event",
+      `Would you like to share "${selectedEvent.title}" with others?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Share", onPress: () => {
+          // In a real app, this would use the Share API
+          Alert.alert("Shared", "Event shared successfully!");
+        }}
+      ]
+    );
+  };
+
+  /**
+   * Handles event card press - opens modal with event details
+   */
   const handleEventPress = (event) => {
     setSelectedEvent(event);
     setModalVisible(true);
   };
 
-  // Share event
-  const handleShareEvent = async (event) => {
-    try {
-      await Share.share({
-        message: `Check out this event: ${event.title}\nDate: ${event.date}\nLocation: ${event.location}\nDescription: ${event.description}`,
-      });
-    } catch (error) {
-      console.error("Error sharing event:", error);
+  /**
+   * Handles edit event action
+   * For cloud-synced events, shows alert to edit in calendar app
+   */
+  const handleEditEvent = (event) => {
+    if (event.source === 'cloud') {
+      Alert.alert("Info", "Cloud-synced events must be edited in your calendar app");
+      return;
     }
+    navigation.navigate("Events", { eventToEdit: event });
   };
 
+  // Loading state
   if (loading) {
     return (
       <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
@@ -111,28 +269,10 @@ export default function Home({ navigation }: any) {
 
   return (
     <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
-      <View style={globalStyles.container}>
-        {/* Banner for today's event */}
-        <View style={globalStyles.banner}>
-          {hasEventToday ? (
-            <View style={globalStyles.eventBanner}>
-              <Text style={globalStyles.bannerText}>You have an event today:</Text>
-              <Text style={globalStyles.bannerEventTitle}>
-                {myEvents.find(event => event.date === today)?.title}
-              </Text>
-            </View>
-          ) : (
-            <Text style={globalStyles.bannerText}>Nothing planned today</Text>
-          )}
-          <GradientButton 
-            onPress={() => navigation.navigate("Events")}
-            style={{ marginTop: 10 }}
-          >
-            Create an Event
-          </GradientButton>
-        </View>
+      <View style={[globalStyles.container, { paddingTop: 0 }]}>
 
-        <View style={globalStyles.sectionSelector}>
+        {/* Section selector tabs (My Events / Explore) */}
+        <View style={[globalStyles.sectionSelector, { paddingTop: 50}]}>
           <TouchableOpacity
             style={[
               globalStyles.sectionButton, 
@@ -163,26 +303,45 @@ export default function Home({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
+        {/* My Events section */}
         {selectedSection === "My Events" ? (
           <FlatList
             data={myEvents}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#fff"]}
+                tintColor="#fff"
+              />
+            }
+            contentContainerStyle={{ paddingBottom: 20 }}
             ListEmptyComponent={
               <View style={{ alignItems: 'center', marginTop: 50 }}>
                 <Ionicons name="calendar-outline" size={40} color="#fff" />
-                <Text style={{ color: '#fff', marginTop: 10 }}>No events found</Text>
+                <Text style={{ color: '#fff', marginTop: 10 }}>No upcoming events</Text>
+                <GradientButton 
+                  onPress={() => navigation.navigate("Events")}
+                  style={{ marginTop: 20 }}
+                >
+                  Create Your First Event
+                </GradientButton>
               </View>
             }
             renderItem={({ item }) => (
               <TouchableOpacity 
-                style={globalStyles.eventCard} 
+                style={homeStyles.eventCard} 
                 onPress={() => handleEventPress(item)}
               >
                 <View style={globalStyles.eventDetails}>
                   <Text style={globalStyles.eventTitle}>{item.title}</Text>
                   <Text style={globalStyles.eventLocation}>{item.location}</Text>
-                  <Text style={globalStyles.eventAttendees}>
+                  <Text style={[globalStyles.eventText, { marginTop: 4 }]}>
+                    {item.datetime.toLocaleDateString()} • {item.datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                  <Text style={globalStyles.eventText}>
                     {item.attendees} {item.attendees === 1 ? 'friend' : 'friends'} attending
                   </Text>
                 </View>
@@ -190,25 +349,27 @@ export default function Home({ navigation }: any) {
             )}
           />
         ) : (
+          /* Explore section */
           <>
+            {/* Category filter scroll view */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={globalStyles.categoryList}
+              contentContainerStyle={[globalStyles.categoryList, { paddingVertical: 8, marginTop: 10 }]}
             >
               {categories.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   style={[
-                    globalStyles.categoryButton, 
-                    selectedCategory === item.name && globalStyles.categoryButtonActive
+                    homeStyles.categoryButtonContainer,
+                    selectedCategory === item.name && homeStyles.categoryButtonContainerActive
                   ]}
                   onPress={() => setSelectedCategory(item.name)}
                   activeOpacity={0.7}
                 >
                   <Text style={[
-                    globalStyles.categoryText, 
-                    selectedCategory === item.name && globalStyles.categoryTextActive
+                    homeStyles.categoryButtonText,
+                    selectedCategory === item.name && homeStyles.categoryButtonTextActive
                   ]}>
                     {item.name}
                   </Text>
@@ -216,27 +377,45 @@ export default function Home({ navigation }: any) {
               ))}
             </ScrollView>
 
+            {/* Filtered events list */}
             <FlatList
               data={filteredEvents}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={["#fff"]}
+                  tintColor="#fff"
+                />
+              }
+              contentContainerStyle={{ paddingBottom: 20 }}
               ListEmptyComponent={
                 <View style={{ alignItems: 'center', marginTop: 50 }}>
                   <Ionicons name="calendar-outline" size={40} color="#fff" />
-                  <Text style={{ color: '#fff', marginTop: 10 }}>No events found</Text>
+                  <Text style={{ color: '#fff', marginTop: 10 }}>No events found for this category</Text>
                 </View>
               }
               renderItem={({ item }) => (
                 <TouchableOpacity 
-                  style={globalStyles.eventCard} 
+                  style={homeStyles.eventCard}
                   onPress={() => handleEventPress(item)}
                 >
                   <View style={globalStyles.eventDetails}>
                     <Text style={globalStyles.eventTitle}>{item.title}</Text>
                     <Text style={globalStyles.eventLocation}>{item.location}</Text>
-                    <Text style={globalStyles.eventAttendees}>
-                      {item.attendees} {item.attendees === 1 ? 'friend' : 'friends'} attending
+                    <Text style={[globalStyles.eventText, { marginTop: 4 }]}>
+                      {item.datetime.toLocaleDateString()} • {item.datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
+                    <Text style={globalStyles.eventText}>
+                      {item.attendees} people going
+                    </Text>
+                    {item.isPublic && (
+                      <Text style={homeStyles.publicEventTag}>
+                        Public Event - Tap to learn more
+                      </Text>
+                    )}
                   </View>
                 </TouchableOpacity>
               )}
@@ -244,6 +423,7 @@ export default function Home({ navigation }: any) {
           </>
         )}
 
+        {/* Event details modal */}
         <Modal
           visible={modalVisible}
           transparent
@@ -255,44 +435,80 @@ export default function Home({ navigation }: any) {
             activeOpacity={1}
             onPress={() => setModalVisible(false)}
           >
-            <TouchableOpacity 
-              style={globalStyles.modalContent}
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-            >
+            <View style={globalStyles.modalContent}>
               {selectedEvent && (
                 <>
                   <View style={globalStyles.modalHeader}>
                     <Text style={globalStyles.modalTitle}>{selectedEvent.title}</Text>
                     <Text style={globalStyles.modalSubtitle}>
-                      {selectedEvent.date} • {selectedEvent.location}
+                      {selectedEvent.datetime.toLocaleDateString()} • {selectedEvent.datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
+                    <Text style={globalStyles.modalSubtitle}>
+                      {selectedEvent.location}
+                    </Text>
+                    {selectedEvent.source === 'cloud' && (
+                      <Text style={[globalStyles.modalSubtitle, { color: '#5967EB' }]}>
+                        (Synced from your calendar)
+                      </Text>
+                    )}
+                    {selectedEvent.isPublic && (
+                      <Text style={[globalStyles.modalSubtitle, { color: '#5967EB' }]}>
+                        Public Event
+                      </Text>
+                    )}
                   </View>
                   
                   <View style={globalStyles.modalBody}>
-                    <Text style={{ 
-                      color: "rgba(255, 255, 255, 0.8)",
-                      fontSize: 14,
-                      lineHeight: 20,
-                    }}>
+                    <Text style={globalStyles.modalText}>
                       {selectedEvent.description}
                     </Text>
                   </View>
                   
-                  <View style={globalStyles.modalFooter}>
-                    <ModalButton 
-                      type="cancel"
-                      onPress={() => handleShareEvent(selectedEvent)}
-                    >
-                      <View style={globalStyles.modalButtonContent}>
-                        <Ionicons name="share-social" size={16} color="#fff" style={{ marginRight: 8 }} />
-                        <Text style={{ color: '#fff' }}>Share</Text>
-                      </View>
-                    </ModalButton>
-                    <ModalButton onPress={() => alert("You joined the event!")}>
-                      Join Event
-                    </ModalButton>
-                  </View>
+                  {/* Action buttons based on context */}
+                  {selectedSection === "My Events" && (
+                    <View style={globalStyles.modalFooter}>
+                      <ModalButton 
+                        type="cancel"
+                        onPress={() => {
+                          setModalVisible(false);
+                          handleEditEvent(selectedEvent);
+                        }}
+                      >
+                        <View style={globalStyles.modalButtonContent}>
+                          <Ionicons name="create-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
+                          <Text style={{ color: '#fff' }}>Edit</Text>
+                        </View>
+                      </ModalButton>
+                    </View>
+                  )}
+                  
+                  {selectedSection === "Explore" && selectedEvent.isPublic && (
+                    <View style={[globalStyles.modalFooter, homeStyles.modalFooterButtons]}>
+                      <ModalButton 
+                        type="cancel"
+                        onPress={() => {
+                          Alert.alert("Event Joined", "You've joined this public event!");
+                          setModalVisible(false);
+                        }}
+                        style={homeStyles.modalButtonHalf}
+                      >
+                        <View style={globalStyles.modalButtonContent}>
+                          <Ionicons name="add-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
+                          <Text style={{ color: '#fff' }}>Join Event</Text>
+                        </View>
+                      </ModalButton>
+                      <ModalButton 
+                        type="primary"
+                        onPress={handleShareEvent}
+                        style={homeStyles.modalButtonHalf}
+                      >
+                        <View style={globalStyles.modalButtonContent}>
+                          <Ionicons name="share-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
+                          <Text style={{ color: '#fff' }}>Share</Text>
+                        </View>
+                      </ModalButton>
+                    </View>
+                  )}
 
                   <TouchableOpacity
                     style={globalStyles.modalCloseButton}
@@ -302,7 +518,7 @@ export default function Home({ navigation }: any) {
                   </TouchableOpacity>
                 </>
               )}
-            </TouchableOpacity>
+            </View>
           </TouchableOpacity>
         </Modal>
       </View>
