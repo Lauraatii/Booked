@@ -35,22 +35,21 @@ const generateUniqueId = (event, index) => {
 
 // Custom styles specific to the Home component
 const homeStyles = StyleSheet.create({
-  // Main container styles
   contentContainer: {
-    paddingTop: 20, // Added top padding for better spacing
+    paddingTop: 20, 
     flex: 1,
   },
   
   // Category filter buttons in Explore section
   categoryButtonContainer: {
-    justifyContent: 'center', // Vertically center content
-    paddingHorizontal: 16, // Horizontal padding
-    borderRadius: 21, // Fully rounded corners
-    marginHorizontal: 6, // Spacing between buttons
+    justifyContent: 'center', 
+    paddingHorizontal: 16, 
+    borderRadius: 21, 
+    marginHorizontal: 6, 
     backgroundColor: "rgba(89, 77, 168, 0.3)",
     borderWidth: 1,
     borderColor: "rgba(89, 77, 168, 0.5)",
-    height: 42, // Fixed height for consistent button sizing
+    height: 42, 
   },
   categoryButtonContainerActive: {
     backgroundColor: "#594DA8",
@@ -90,12 +89,11 @@ const homeStyles = StyleSheet.create({
     width: '100%',
   },
   modalButtonHalf: {
-    width: '48%', // Slightly less than half to account for gap
+    width: '48%', 
   },
 });
 
 export default function Home({ navigation }: any) {
-  // State management
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedSection, setSelectedSection] = useState("My Events");
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -229,7 +227,7 @@ export default function Home({ navigation }: any) {
       [
         { text: "Cancel", style: "cancel" },
         { text: "Share", onPress: () => {
-          // In a real app, this would use the Share API
+          // use the Share API
           Alert.alert("Shared", "Event shared successfully!");
         }}
       ]
@@ -256,7 +254,6 @@ export default function Home({ navigation }: any) {
     navigation.navigate("Events", { eventToEdit: event });
   };
 
-  // Loading state
   if (loading) {
     return (
       <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>

@@ -1,4 +1,4 @@
-// Updated Groups.js with improved user lookup functionality
+// Updated Groups.js with consistent styling
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -14,7 +14,6 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { db, auth } from "../../../firebaseConfig";
 import { 
   collection, 
@@ -103,7 +102,6 @@ export default function Groups({ navigation }: any) {
 
   const findUserByEmail = async (email: string) => {
     try {
-      // First check if the user exists in the users collection
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("email", "==", email.toLowerCase().trim()));
       const querySnapshot = await getDocs(q);
@@ -135,13 +133,11 @@ export default function Groups({ navigation }: any) {
       const userToAdd = await findUserByEmail(membersInput.trim());
       
       if (userToAdd) {
-        // Check if user is already added
         if (members.some(m => m.uid === userToAdd.uid)) {
           Alert.alert("Already added", "This user is already in the group");
           return;
         }
         
-        // Check if user is trying to add themselves
         if (userToAdd.uid === user?.uid) {
           Alert.alert("Notice", "You are automatically added as the group creator");
           return;
@@ -172,16 +168,14 @@ export default function Groups({ navigation }: any) {
     }
 
     try {
-      // First create the group with the creator as member
       const groupRef = await addDoc(collection(db, "groups"), {
         name: groupName,
-        members: [user.uid], // Start with just the creator
+        members: [user.uid],
         events: [],
         createdAt: new Date(),
         createdBy: user.uid,
       });
 
-      // Then add all other members to the group
       const memberUids = members.map(m => m.uid);
       if (memberUids.length > 0) {
         await updateDoc(groupRef, {
@@ -189,7 +183,6 @@ export default function Groups({ navigation }: any) {
         });
       }
 
-      // Also add the group to each member's groups list
       const batchUpdates = memberUids.map(async (uid) => {
         const userRef = doc(db, "users", uid);
         await updateDoc(userRef, {
@@ -199,7 +192,6 @@ export default function Groups({ navigation }: any) {
 
       await Promise.all(batchUpdates);
 
-      // Update local state
       setGroups((prev) => [
         ...prev,
         { 
@@ -226,7 +218,7 @@ export default function Groups({ navigation }: any) {
       onPress={() => navigation.navigate("GroupDetails", { groupId: item.id })}
     >
       <View style={globalStyles.groupIcon}>
-        <Ionicons name="people" size={24} color="#D9FFF5" />
+        <Ionicons name="people" size={24} color="#5967EB" />
       </View>
       <View style={globalStyles.groupInfo}>
         <Text style={globalStyles.groupName}>{item.name}</Text>
@@ -234,220 +226,216 @@ export default function Groups({ navigation }: any) {
           {item.members.length} member{item.members.length !== 1 && "s"}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#D9FFF5" />
+      <Ionicons name="chevron-forward" size={20} color="#5967EB" />
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
-        <View style={globalStyles.loadingContainer}>
-          <ActivityIndicator size="large" color="#D9FFF5" />
-        </View>
-      </LinearGradient>
+      <View style={[globalStyles.container, globalStyles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#5967EB" />
+      </View>
     );
   }
 
   return (
-    <LinearGradient colors={["#100f0f", "#2a0b4e"]} style={globalStyles.gradient}>
-      <View style={[globalStyles.container, { paddingTop: 80 }]}>
-        {/* Header */}
-        <View style={globalStyles.header}>
-          <Text style={globalStyles.headerTitle}>Your Groups</Text>
-          <View style={globalStyles.headerButtons}>
-            <TouchableOpacity 
-              onPress={() => setIsCreatingGroup(true)} 
-              style={globalStyles.createGroupButton}
-            >
-              <Ionicons name="add" size={24} color="#D9FFF5" />
-            </TouchableOpacity>
-          </View>
+    <View style={[globalStyles.container, { paddingTop: 80, backgroundColor: "#100f0f" }]}>
+      {/* Header */}
+      <View style={globalStyles.header}>
+        <Text style={globalStyles.headerTitle}>Your Groups</Text>
+        <View style={globalStyles.headerButtons}>
+          <TouchableOpacity 
+            onPress={() => setIsCreatingGroup(true)} 
+            style={globalStyles.createGroupButton}
+          >
+            <Ionicons name="add" size={24} color="#5967EB" />
+          </TouchableOpacity>
         </View>
+      </View>
 
-        <Modal
-          visible={isCreatingGroup}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsCreatingGroup(false)}
+      <Modal
+        visible={isCreatingGroup}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsCreatingGroup(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1 }}
+          <TouchableOpacity 
+            style={[globalStyles.modalOverlay, { justifyContent: 'flex-start', paddingTop: 90 }]}
+            activeOpacity={1}
+            onPress={() => setIsCreatingGroup(false)}
           >
             <TouchableOpacity 
-              style={[globalStyles.modalOverlay, { justifyContent: 'flex-start', paddingTop: 90 }]}
+              style={globalStyles.modalContent}
               activeOpacity={1}
-              onPress={() => setIsCreatingGroup(false)}
+              onPress={(e) => e.stopPropagation()}
             >
-              <TouchableOpacity 
-                style={globalStyles.modalContent}
-                activeOpacity={1}
-                onPress={(e) => e.stopPropagation()}
-              >
-                <View style={globalStyles.modalHeader}>
-                  <Text style={globalStyles.modalTitle}>Create New Group</Text>
-                  <Text style={globalStyles.modalSubtitle}>
-                    Give your group a name and add members by email
-                  </Text>
+              <View style={globalStyles.modalHeader}>
+                <Text style={globalStyles.modalTitle}>Create New Group</Text>
+                <Text style={globalStyles.modalSubtitle}>
+                  Give your group a name and add members by email
+                </Text>
+              </View>
+              
+              <View style={globalStyles.modalBody}>
+                <View>
+                  <Text style={{ color: '#fff', marginBottom: 8 }}>Group Name</Text>
+                  <TextInput
+                    style={[
+                      globalStyles.input,
+                      errors.groupName && globalStyles.inputError
+                    ]}
+                    placeholder="Enter group name"
+                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    value={groupName}
+                    onChangeText={(text) => {
+                      setGroupName(text);
+                      setErrors({...errors, groupName: ""});
+                    }}
+                    maxLength={30}
+                    autoFocus
+                  />
+                  {errors.groupName ? (
+                    <Text style={globalStyles.errorText}>{errors.groupName}</Text>
+                  ) : (
+                    <Text style={globalStyles.charLimit}>
+                      {groupName.length}/30 characters
+                    </Text>
+                  )}
                 </View>
-                
-                <View style={globalStyles.modalBody}>
-                  <View>
-                    <Text style={{ color: '#D9FFF5', marginBottom: 8 }}>Group Name</Text>
+
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ color: '#fff', marginBottom: 8 }}>Add Members</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <TextInput
                       style={[
                         globalStyles.input,
-                        errors.groupName && globalStyles.inputError
+                        { flex: 1, marginRight: 10 },
+                        errors.membersInput && globalStyles.inputError
                       ]}
-                      placeholder="Enter group name"
+                      placeholder="Enter member email"
                       placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      value={groupName}
+                      value={membersInput}
                       onChangeText={(text) => {
-                        setGroupName(text);
-                        setErrors({...errors, groupName: ""});
+                        setMembersInput(text);
+                        setErrors({...errors, membersInput: ""});
                       }}
-                      maxLength={30}
-                      autoFocus
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      onSubmitEditing={handleAddMember}
                     />
-                    {errors.groupName ? (
-                      <Text style={globalStyles.errorText}>{errors.groupName}</Text>
-                    ) : (
-                      <Text style={globalStyles.charLimit}>
-                        {groupName.length}/30 characters
-                      </Text>
-                    )}
-                  </View>
-
-                  <View style={{ marginBottom: 10 }}>
-                    <Text style={{ color: '#D9FFF5', marginBottom: 8 }}>Add Members</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <TextInput
-                        style={[
-                          globalStyles.input,
-                          { flex: 1, marginRight: 10 },
-                          errors.membersInput && globalStyles.inputError
-                        ]}
-                        placeholder="Enter member email"
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        value={membersInput}
-                        onChangeText={(text) => {
-                          setMembersInput(text);
-                          setErrors({...errors, membersInput: ""});
-                        }}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        onSubmitEditing={handleAddMember}
-                      />
-                      <TouchableOpacity
-                        onPress={handleAddMember}
-                        disabled={isAddingMembers}
-                        style={{
-                          backgroundColor: '#594DA8',
-                          padding: 12,
-                          borderRadius: 12,
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          marginBottom: 12,
-                          height: 50,
-                          opacity: isAddingMembers ? 0.7 : 1,
-                        }}
-                      >
-                        {isAddingMembers ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <Ionicons name="add" size={20} color="#fff" />
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                    {errors.membersInput && (
-                      <Text style={globalStyles.errorText}>{errors.membersInput}</Text>
-                    )}
-                  </View>
-
-                  {members.length > 0 && (
-                    <View>
-                      <Text style={{ color: '#D9FFF5', marginBottom: 8 }}>
-                        Members ({members.length + 1}) - You + {members.length} other(s)
-                      </Text>
-                      <View style={{ 
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: 12,
+                    <TouchableOpacity
+                      onPress={handleAddMember}
+                      disabled={isAddingMembers}
+                      style={{
+                        backgroundColor: '#594DA8',
                         padding: 12,
-                        maxHeight: 150,
-                      }}>
-                        <FlatList
-                          data={members}
-                          keyExtractor={(item) => item.uid}
-                          renderItem={({ item }) => (
-                            <View style={{ 
-                              flexDirection: 'row', 
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              paddingVertical: 8,
-                              borderBottomWidth: 1,
-                              borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-                            }}>
-                              <Text style={{ color: '#fff', flex: 1 }}>{item.email}</Text>
-                              <TouchableOpacity 
-                                onPress={() => handleRemoveMember(item.uid)}
-                                style={{ padding: 4 }}
-                              >
-                                <Ionicons name="close" size={18} color="#FF6B6B"/>
-                              </TouchableOpacity>
-                            </View>
-                          )}
-                        />
-                      </View>
-                    </View>
+                        borderRadius: 12,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        marginBottom: 12,
+                        height: 50,
+                        opacity: isAddingMembers ? 0.7 : 1,
+                      }}
+                    >
+                      {isAddingMembers ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Ionicons name="add" size={20} color="#fff" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  {errors.membersInput && (
+                    <Text style={globalStyles.errorText}>{errors.membersInput}</Text>
                   )}
                 </View>
-                
-                <View style={globalStyles.modalFooter}>
-                  <ModalButton 
-                    type="cancel"
-                    onPress={() => setIsCreatingGroup(false)}
-                  >
-                    Cancel
-                  </ModalButton>
-                  <ModalButton 
-                    onPress={handleCreateGroup}
-                  >
-                    Create Group
-                  </ModalButton>
-                </View>
 
-                <TouchableOpacity
-                  style={globalStyles.modalCloseButton}
+                {members.length > 0 && (
+                  <View>
+                    <Text style={{ color: '#fff', marginBottom: 8 }}>
+                      Members ({members.length + 1}) - You + {members.length} other(s)
+                    </Text>
+                    <View style={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: 12,
+                      padding: 12,
+                      maxHeight: 150,
+                    }}>
+                      <FlatList
+                        data={members}
+                        keyExtractor={(item) => item.uid}
+                        renderItem={({ item }) => (
+                          <View style={{ 
+                            flexDirection: 'row', 
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            paddingVertical: 8,
+                            borderBottomWidth: 1,
+                            borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+                          }}>
+                            <Text style={{ color: '#fff', flex: 1 }}>{item.email}</Text>
+                            <TouchableOpacity 
+                              onPress={() => handleRemoveMember(item.uid)}
+                              style={{ padding: 4 }}
+                            >
+                              <Ionicons name="close" size={18} color="#FF6B6B"/>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+              
+              <View style={globalStyles.modalFooter}>
+                <ModalButton 
+                  type="cancel"
                   onPress={() => setIsCreatingGroup(false)}
                 >
-                  <Ionicons name="close" size={20} color="#fff" />
-                </TouchableOpacity>
+                  Cancel
+                </ModalButton>
+                <ModalButton 
+                  onPress={handleCreateGroup}
+                >
+                  Create Group
+                </ModalButton>
+              </View>
+
+              <TouchableOpacity
+                style={globalStyles.modalCloseButton}
+                onPress={() => setIsCreatingGroup(false)}
+              >
+                <Ionicons name="close" size={20} color="#fff" />
               </TouchableOpacity>
             </TouchableOpacity>
-          </KeyboardAvoidingView>
-        </Modal>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
 
-        {/* Group List */}
-        <FlatList
-          data={groups}
-          keyExtractor={(item) => item.id}
-          renderItem={renderGroupItem}
-          contentContainerStyle={globalStyles.groupList}
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh}
-              tintColor="#D9FFF5"
-            />
-          }
-          ListEmptyComponent={
-            <View style={globalStyles.emptyState}>
-              <Ionicons name="people-outline" size={50} color="#D9FFF5" />
-              <Text style={globalStyles.emptyText}>No groups yet. Create one!</Text>
-            </View>
-          }
-        />
-      </View>
-    </LinearGradient>
+      {/* Group List */}
+      <FlatList
+        data={groups}
+        keyExtractor={(item) => item.id}
+        renderItem={renderGroupItem}
+        contentContainerStyle={globalStyles.groupList}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            tintColor="#5967EB"
+          />
+        }
+        ListEmptyComponent={
+          <View style={globalStyles.emptyState}>
+            <Ionicons name="people-outline" size={50} color="#5967EB" />
+            <Text style={globalStyles.emptyText}>No groups yet. Create one!</Text>
+          </View>
+        }
+      />
+    </View>
   );
 }
