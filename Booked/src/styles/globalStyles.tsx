@@ -1,5 +1,7 @@
 import { StyleSheet, TouchableOpacity, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import React from "react";
+import { Ionicons } from "@expo/vector-icons";
 
 export const globalStyles = StyleSheet.create({
   // Layout
@@ -419,6 +421,298 @@ export const globalStyles = StyleSheet.create({
   groupList: {
     paddingBottom: 20,
   },
+
+  // Group Info Styles
+  groupInfoContainer: {
+    flex: 1,
+    backgroundColor: "#100f0f",
+    paddingHorizontal: 16,
+  },
+  groupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+  },
+  editHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+  },
+  groupImageContainer: {
+    alignItems: "center",
+    marginVertical: 24,
+  },
+  groupImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: "#5967EB",
+  },
+  // groupName: {
+  //   fontSize: 24,
+  //   fontWeight: "bold",
+  //   color: "#fff",
+  //   marginTop: 16,
+  //   textAlign: "center",
+  // },
+  loadingText: {
+    fontSize: 16,
+    color: "#5967EB",
+    marginTop: 10,
+  },
+  groupNameInput: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+    marginTop: 16,
+    textAlign: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  memberCount: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.7)",
+    marginTop: 8,
+  },
+  descriptionContainer: {
+    padding: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  descriptionText: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.8)",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 16,
+  },
+  membersList: {
+    paddingBottom: 20,
+  },
+  memberItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  memberAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#5967EB",
+  },
+  memberName: {
+    fontSize: 16,
+    color: "#fff",
+  },
+  addMemberButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    backgroundColor: "rgba(89, 77, 168, 0.3)",
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "rgba(89, 77, 168, 0.5)",
+  },
+  addMemberText: {
+    fontSize: 16,
+    color: "#5967EB",
+    marginLeft: 8,
+    fontWeight: "600",
+  },
+  optionsContainer: {
+    marginTop: 24,
+  },
+  optionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  optionText: {
+    fontSize: 16,
+    color: "#fff",
+    marginLeft: 12,
+  },
+  dangerOptionText: {
+    color: "#FF6B6B",
+  },
+
+  // Group Chat Styles
+  groupChatContainer: {
+    flex: 1,
+    backgroundColor: "#100f0f",
+  },
+  chatHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+  },
+  groupInfoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  smallGroupImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#5967EB",
+  },
+  chatContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  messageContainer: {
+    maxWidth: "80%",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  myMessage: {
+    alignSelf: "flex-end",
+    backgroundColor: "#594DA8",
+  },
+  otherMessage: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  messageText: {
+    fontSize: 16,
+    color: "#fff",
+  },
+  messageTime: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.6)",
+    marginTop: 4,
+    textAlign: "right",
+  },
+  availabilityMessage: {
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "rgba(89, 77, 168, 0.3)",
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(89, 77, 168, 0.5)",
+  },
+  availabilityMessageText: {
+    fontSize: 14,
+    color: "#fff",
+    marginLeft: 8,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  chatInput: {
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 8,
+    color: "#fff",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  plusModalContent: {
+    backgroundColor: "#1A1A1A",
+    borderRadius: 16,
+    padding: 20,
+    width: "80%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  modalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: "#fff",
+    marginLeft: 12,
+  },
+  scrollToBottomButton: {
+    position: "absolute",
+    bottom: 80,
+    right: 20,
+    backgroundColor: "rgba(89, 77, 168, 0.7)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  overlappingDatesContainer: {
+    padding: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  overlappingDatesTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 8,
+  },
+  overlappingDate: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginBottom: 4,
+  },
+  noDatesText: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.7)",
+    textAlign: "center",
+  },
+
 });
 
 export const eventStyles = StyleSheet.create({
@@ -619,6 +913,39 @@ export const eventStyles = StyleSheet.create({
     backgroundColor: "rgba(89, 103, 235, 0.2)",
   },
 });
+
+export const GroupButton = ({ children, onPress, icon, style = {} }) => {
+  return (
+    <TouchableOpacity 
+      onPress={onPress} 
+      style={[globalStyles.addMemberButton, style]}
+    >
+      {icon && <Ionicons name={icon} size={24} color="#5967EB" />}
+      <Text style={globalStyles.addMemberText}>{children}</Text>
+    </TouchableOpacity>
+  );
+};
+
+export const GroupOptionButton = ({ children, onPress, icon, danger = false, style = {} }) => {
+  return (
+    <TouchableOpacity 
+      onPress={onPress} 
+      style={[globalStyles.optionItem, style]}
+    >
+      <Ionicons 
+        name={icon} 
+        size={24} 
+        color={danger ? "#FF6B6B" : "#5967EB"} 
+      />
+      <Text style={[
+        globalStyles.optionText,
+        danger && globalStyles.dangerOptionText
+      ]}>
+        {children}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 export const GradientButton = ({ children, onPress, style = {} }) => {
   return (

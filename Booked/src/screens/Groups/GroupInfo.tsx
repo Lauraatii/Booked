@@ -2,15 +2,13 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
   Alert,
   TextInput,
   ActivityIndicator,
-  Dimensions,
-  Modal,
   Image,
+  Modal,
   SafeAreaView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,8 +16,7 @@ import { db } from "../../../firebaseConfig";
 import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { useUser } from "../../context/UserContext";
 import * as ImagePicker from "expo-image-picker";
-
-const { width, height } = Dimensions.get("window");
+import { globalStyles, GroupButton, GroupOptionButton, ModalButton } from "../../styles/globalStyles";
 
 export default function GroupInfo({ route, navigation }: any) {
   const { groupId } = route.params;
@@ -57,7 +54,6 @@ export default function GroupInfo({ route, navigation }: any) {
     fetchGroupDetails();
   }, [groupId]);
 
-  // Pick group image
   const pickGroupImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -77,7 +73,6 @@ export default function GroupInfo({ route, navigation }: any) {
     }
   };
 
-  // Save group changes
   const handleSaveChanges = async () => {
     try {
       const groupRef = doc(db, "groups", groupId);
@@ -93,7 +88,6 @@ export default function GroupInfo({ route, navigation }: any) {
     }
   };
 
-  // Update group description
   const handleUpdateDescription = async () => {
     try {
       const groupRef = doc(db, "groups", groupId);
@@ -108,331 +102,159 @@ export default function GroupInfo({ route, navigation }: any) {
     }
   };
 
-  // Render group members
   const renderMember = ({ item }: any) => (
-    <View style={styles.memberItem}>
+    <View style={globalStyles.memberItem}>
       {item.avatar ? (
-        <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
+        <Image source={{ uri: item.avatar }} style={globalStyles.memberAvatar} />
       ) : (
-        <Ionicons name="person" size={40} color="#26A480" />
+        <Ionicons name="person" size={40} color="#5967EB" />
       )}
-      <Text style={styles.memberName}>{item.name || item.email}</Text>
+      <Text style={globalStyles.memberName}>{item.name || item.email}</Text>
     </View>
   );
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#26A480" />
-        <Text style={styles.loadingText}>Loading group details...</Text>
+      <View style={globalStyles.loadingContainer}>
+        <ActivityIndicator size="large" color="#5967EB" />
+        <Text style={globalStyles.loadingText}>Loading group details...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#26A480" />
-        </TouchableOpacity>
-        {isEditing ? (
-          <View style={styles.editHeader}>
-            <TouchableOpacity onPress={() => setIsEditing(false)}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleSaveChanges}>
-              <Text style={styles.doneButtonText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity onPress={() => setIsEditing(true)}>
-            <Ionicons name="create" size={24} color="#26A480" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#100f0f" }}>
+      <View style={globalStyles.groupInfoContainer}>
+        {/* Header */}
+        <View style={globalStyles.groupHeader}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#5967EB" />
           </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Group Image and Name */}
-      <View style={styles.groupImageContainer}>
-        <TouchableOpacity onPress={isEditing ? pickGroupImage : undefined}>
-          {newGroupImage ? (
-            <Image source={{ uri: newGroupImage }} style={styles.groupImage} />
+          {isEditing ? (
+            <View style={globalStyles.editHeader}>
+              <TouchableOpacity onPress={() => setIsEditing(false)}>
+                <Text style={globalStyles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveChanges}>
+                <Text style={globalStyles.modalConfirmButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
-            <Ionicons name="people" size={100} color="#26A480" />
-          )}
-        </TouchableOpacity>
-        {isEditing ? (
-          <TextInput
-            style={styles.groupNameInput}
-            value={newGroupName}
-            onChangeText={setNewGroupName}
-            placeholder="Group Name"
-            placeholderTextColor="#888"
-          />
-        ) : (
-          <Text style={styles.groupName}>{group.name}</Text>
-        )}
-        <Text style={styles.memberCount}>{group.members.length} members</Text>
-      </View>
-
-      {/* Group Description */}
-      <TouchableOpacity
-        style={styles.descriptionContainer}
-        onPress={() => setShowDescriptionModal(true)}
-      >
-        <Text style={styles.descriptionText}>
-          {group.description || "Add a description..."}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Members Section */}
-      <View style={styles.membersContainer}>
-        <Text style={styles.sectionTitle}>Members</Text>
-        <FlatList
-          data={group.members}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMember}
-          contentContainerStyle={styles.membersList}
-        />
-        <TouchableOpacity style={styles.addMemberButton}>
-          <Ionicons name="person-add" size={24} color="#26A480" />
-          <Text style={styles.addMemberText}>Add Members</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Group Options */}
-      <View style={styles.optionsContainer}>
-        <TouchableOpacity style={styles.optionItem}>
-          <Ionicons name="star" size={24} color="#26A480" />
-          <Text style={styles.optionText}>Add Chat to Favorites</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.optionItem}>
-          <Ionicons name="trash" size={24} color="#26A480" />
-          <Text style={styles.optionText}>Clear Chat</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.optionItem}>
-          <Ionicons name="exit" size={24} color="#26A480" />
-          <Text style={styles.optionText}>Exit Group</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.optionItem}>
-          <Ionicons name="trash" size={24} color="#FF6B6B" />
-          <Text style={[styles.optionText, { color: "#FF6B6B" }]}>Delete Chat</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Description Modal */}
-      <Modal visible={showDescriptionModal} transparent animationType="slide">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowDescriptionModal(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Group Description</Text>
-            <TextInput
-              style={styles.descriptionInput}
-              value={newDescription}
-              onChangeText={setNewDescription}
-              placeholder="Add a description..."
-              placeholderTextColor="#888"
-              multiline
-            />
-            <TouchableOpacity style={styles.saveButton} onPress={handleUpdateDescription}>
-              <Text style={styles.saveButtonText}>Save</Text>
+            <TouchableOpacity onPress={() => setIsEditing(true)}>
+              <Ionicons name="create" size={24} color="#5967EB" />
             </TouchableOpacity>
-          </View>
+          )}
+        </View>
+
+        {/* Group Image and Name */}
+        <View style={globalStyles.groupImageContainer}>
+          <TouchableOpacity onPress={isEditing ? pickGroupImage : undefined}>
+            {newGroupImage ? (
+              <Image source={{ uri: newGroupImage }} style={globalStyles.groupImage} />
+            ) : (
+              <Ionicons name="people" size={100} color="#5967EB" />
+            )}
+          </TouchableOpacity>
+          {isEditing ? (
+            <TextInput
+              style={globalStyles.groupNameInput}
+              value={newGroupName}
+              onChangeText={setNewGroupName}
+              placeholder="Group Name"
+              placeholderTextColor="#888"
+            />
+          ) : (
+            <Text style={globalStyles.groupName}>{group.name}</Text>
+          )}
+          <Text style={globalStyles.memberCount}>{group.members.length} members</Text>
+        </View>
+
+        {/* Group Description */}
+        <TouchableOpacity
+          style={globalStyles.descriptionContainer}
+          onPress={() => setShowDescriptionModal(true)}
+        >
+          <Text style={globalStyles.descriptionText}>
+            {group.description || "Add a description..."}
+          </Text>
         </TouchableOpacity>
-      </Modal>
+
+        {/* Members Section */}
+        <View style={{ paddingHorizontal: 16 }}>
+          <Text style={globalStyles.sectionTitle}>Members</Text>
+          <FlatList
+            data={group.members}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMember}
+            contentContainerStyle={globalStyles.membersList}
+          />
+          <GroupButton 
+            onPress={() => Alert.alert("Add Members", "Feature coming soon")} 
+            icon="person-add"
+          >
+            Add Members
+          </GroupButton>
+        </View>
+
+        {/* Group Options */}
+        <View style={globalStyles.optionsContainer}>
+          <GroupOptionButton 
+            onPress={() => Alert.alert("Favorites", "Feature coming soon")} 
+            icon="star"
+          >
+            Add Chat to Favorites
+          </GroupOptionButton>
+          <GroupOptionButton 
+            onPress={() => Alert.alert("Clear Chat", "Feature coming soon")} 
+            icon="trash"
+          >
+            Clear Chat
+          </GroupOptionButton>
+          <GroupOptionButton 
+            onPress={() => Alert.alert("Exit Group", "Feature coming soon")} 
+            icon="exit"
+          >
+            Exit Group
+          </GroupOptionButton>
+          <GroupOptionButton 
+            onPress={() => Alert.alert("Delete Chat", "Feature coming soon")} 
+            icon="trash"
+            danger
+          >
+            Delete Chat
+          </GroupOptionButton>
+        </View>
+
+        {/* Description Modal */}
+        <Modal visible={showDescriptionModal} transparent animationType="slide">
+          <View style={globalStyles.modalOverlay}>
+            <View style={globalStyles.modalContent}>
+              <Text style={globalStyles.modalTitle}>Edit Group Description</Text>
+              <TextInput
+                style={[globalStyles.input, { height: 100 }]}
+                value={newDescription}
+                onChangeText={setNewDescription}
+                placeholder="Add a description..."
+                placeholderTextColor="#888"
+                multiline
+              />
+              <View style={globalStyles.modalFooter}>
+                <ModalButton 
+                  type="cancel" 
+                  onPress={() => setShowDescriptionModal(false)}
+                >
+                  Cancel
+                </ModalButton>
+                <ModalButton 
+                  onPress={handleUpdateDescription}
+                >
+                  Save
+                </ModalButton>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F7F8F9",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F7F8F9",
-  },
-  loadingText: {
-    fontSize: 16,
-    color: "#26A480",
-    marginTop: 10,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  editHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 20,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: "#555",
-  },
-  doneButtonText: {
-    fontSize: 16,
-    color: "#26A480",
-    fontWeight: "bold",
-  },
-  groupImageContainer: {
-    alignItems: "center",
-    marginTop: 20,
-  },
-  groupImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  groupName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#26A480",
-    marginTop: 10,
-  },
-  groupNameInput: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#26A480",
-    marginTop: 10,
-    textAlign: "center",
-  },
-  memberCount: {
-    fontSize: 16,
-    color: "#777",
-    marginTop: 5,
-  },
-  descriptionContainer: {
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 20,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  descriptionText: {
-    fontSize: 16,
-    color: "#555",
-  },
-  membersContainer: {
-    marginTop: 20,
-    paddingHorizontal: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#26A480",
-    marginBottom: 10,
-  },
-  membersList: {
-    paddingBottom: 20,
-  },
-  memberItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  memberAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  memberName: {
-    fontSize: 16,
-    color: "#555",
-  },
-  addMemberButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 10,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  addMemberText: {
-    fontSize: 16,
-    color: "#26A480",
-    marginLeft: 10,
-  },
-  optionsContainer: {
-    marginTop: 20,
-    paddingHorizontal: 16,
-  },
-  optionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  optionText: {
-    fontSize: 16,
-    color: "#555",
-    marginLeft: 10,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#26A480",
-    marginBottom: 15,
-  },
-  descriptionInput: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    padding: 10,
-    minHeight: 100,
-    fontSize: 16,
-    color: "#555",
-  },
-  saveButton: {
-    backgroundColor: "#26A480",
-    padding: 10,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 15,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "bold",
-  },
-});
