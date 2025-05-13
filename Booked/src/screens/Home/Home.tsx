@@ -17,8 +17,35 @@ import { globalStyles, GradientButton, ModalButton } from "../../styles/globalSt
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 
+// Defined types for data structures
+type Event = {
+  id: string;
+  originalId?: string;
+  title: string;
+  date: string;
+  datetime: Date;
+  location: string;
+  attendees: number;
+  description: string;
+  category: string;
+  source?: 'local' | 'cloud';
+  isPublic?: boolean;
+  notes?: string;
+};
+
+type Category = {
+  id: string;
+  name: string;
+};
+
+type NavigationProps = {
+  navigation: {
+    navigate: (screen: string, params?: any) => void;
+  };
+};
+
 // Categories for filtering events in Explore section
-const categories = [
+const categories: Category[] = [
   { id: "1", name: "All" },
   { id: "2", name: "Trips" },
   { id: "3", name: "Parties" },
@@ -29,7 +56,7 @@ const categories = [
 ];
 
 // Helper function to generate unique IDs for events
-const generateUniqueId = (event, index) => {
+const generateUniqueId = (event: any, index: number): string => {
   return event.id ? `${event.id}-${index}` : `event-${index}-${Date.now()}`;
 };
 
@@ -93,15 +120,15 @@ const homeStyles = StyleSheet.create({
   },
 });
 
-export default function Home({ navigation }: any) {
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedSection, setSelectedSection] = useState("My Events");
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [myEvents, setMyEvents] = useState([]);
-  const [exploreEvents, setExploreEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+export default function Home({ navigation }: NavigationProps) {
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedSection, setSelectedSection] = useState<string>("My Events");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [myEvents, setMyEvents] = useState<Event[]>([]);
+  const [exploreEvents, setExploreEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   /**
    * Fetches events from Firestore and iCloud calendar
@@ -120,12 +147,12 @@ export default function Home({ navigation }: any) {
         const now = new Date();
         
         // Process personal events - filter out past events and add metadata
-        const personalEvents = availability
-          .filter(event => {
+        const personalEvents: Event[] = availability
+          .filter((event: any) => {
             const eventDate = event.startDate ? new Date(event.startDate) : null;
             return eventDate && eventDate >= now;
           })
-          .map((event, index) => ({
+          .map((event: any, index: number) => ({
             id: generateUniqueId(event, index),
             originalId: event.id,
             title: event.title || "Untitled Event",
@@ -139,16 +166,16 @@ export default function Home({ navigation }: any) {
           }));
 
         // Sort events by date (soonest first)
-        personalEvents.sort((a, b) => a.datetime - b.datetime);
+        personalEvents.sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
 
         // Remove potential duplicates
-        const uniqueEventsMap = new Map();
+        const uniqueEventsMap = new Map<string, Event>();
         personalEvents.forEach(event => uniqueEventsMap.set(event.id, event));
         
         setMyEvents(Array.from(uniqueEventsMap.values()));
         
         // Public events data - in a real app, this would come from a public events collection
-        const publicEvents = [
+        const publicEvents: Event[] = [
           {
             id: "public-1",
             title: "Community Meetup 🎉",
@@ -227,7 +254,7 @@ export default function Home({ navigation }: any) {
       [
         { text: "Cancel", style: "cancel" },
         { text: "Share", onPress: () => {
-          // use the Share API
+          // used Share API
           Alert.alert("Shared", "Event shared successfully!");
         }}
       ]
@@ -237,7 +264,7 @@ export default function Home({ navigation }: any) {
   /**
    * Handles event card press - opens modal with event details
    */
-  const handleEventPress = (event) => {
+  const handleEventPress = (event: Event) => {
     setSelectedEvent(event);
     setModalVisible(true);
   };
@@ -246,7 +273,7 @@ export default function Home({ navigation }: any) {
    * Handles edit event action
    * For cloud-synced events, shows alert to edit in calendar app
    */
-  const handleEditEvent = (event) => {
+  const handleEditEvent = (event: Event) => {
     if (event.source === 'cloud') {
       Alert.alert("Info", "Cloud-synced events must be edited in your calendar app");
       return;
@@ -465,7 +492,7 @@ export default function Home({ navigation }: any) {
                   {selectedSection === "My Events" && (
                     <View style={globalStyles.modalFooter}>
                       <ModalButton 
-                        type="cancel"
+                        type="confirm"
                         onPress={() => {
                           setModalVisible(false);
                           handleEditEvent(selectedEvent);
@@ -495,7 +522,7 @@ export default function Home({ navigation }: any) {
                         </View>
                       </ModalButton>
                       <ModalButton 
-                        type="primary"
+                        type="confirm"
                         onPress={handleShareEvent}
                         style={homeStyles.modalButtonHalf}
                       >

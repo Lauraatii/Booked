@@ -2,7 +2,7 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import { Ionicons } from "react-native-vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 
 import SplashScreen from "./SplashScreen";
@@ -35,8 +35,30 @@ const linking = {
   },
 };
 
-const Stack = createStackNavigator();
-const Tab = createBottomTabNavigator();
+type RootStackParamList = {
+  Splash: undefined;
+  Welcome: undefined;
+  Login: undefined;
+  Signup: undefined;
+  Auth: undefined;
+  Main: undefined;
+  GroupDetails: { groupId: string };
+  EditProfile: undefined;
+  GroupInfo: { groupId: string };
+  ResetPassword: undefined;
+  Onboarding: undefined;
+};
+
+type MainTabParamList = {
+  Home: undefined;
+  Groups: undefined;
+  "My calendar": undefined;
+  Profile: undefined;
+};
+
+
+const Stack = createStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
 
 // Authentication Stack (for Login, Signup, and ResetPassword)
@@ -56,17 +78,26 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ color, size }) => {
-          let iconName;
-          if (route.name === "Home") {
-            iconName = "home";
-          } else if (route.name === "Groups") {
-            iconName = "people";
-          } else if (route.name === "My calendar") {
-            iconName = "calendar";
-          } else if (route.name === "Profile") {
-            iconName = "person";
+        tabBarIcon: ({ color, size }: { color: string; size: number }) => {
+          let iconName: keyof typeof Ionicons.glyphMap;
+          
+          switch (route.name) {
+            case "Home":
+              iconName = "home";
+              break;
+            case "Groups":
+              iconName = "people";
+              break;
+            case "My calendar":
+              iconName = "calendar";
+              break;
+            case "Profile":
+              iconName = "person";
+              break;
+            default:
+              iconName = "help"; // fallback icon
           }
+          
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: "#31C99Ergba(255, 255, 255, 0.)",

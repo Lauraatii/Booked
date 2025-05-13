@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,33 +7,151 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   SafeAreaView,
   Image,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { db } from "../../../firebaseConfig";
 import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { useUser } from "../../context/UserContext";
 import { globalStyles, ModalButton } from "../../styles/globalStyles";
+import DateTimePicker from '@react-native-community/datetimepicker';
 
-export default function GroupDetails({ route, navigation }: any) {
+// Type definitions
+type Group = {
+  id: string;
+  name: string;
+  members: string[];
+  image: string | null;
+  messages?: Message[];
+  availability?: Availability[];
+};
+
+type Message = {
+  id: string;
+  text: string;
+  sender: string;
+  timestamp: string;
+  type?: "text" | "availability";
+};
+
+type Availability = {
+  userId: string;
+  dates: DateBlock[];
+  status: "pending" | "approved";
+};
+
+type DateBlock = {
+  start: string;
+  end: string;
+  title?: string;
+};
+
+type GroupDetailsProps = {
+  route: {
+    params: {
+      groupId: string;
+    };
+  };
+  navigation: any;
+};
+
+type IconName = "calendar" | "image" | "document-text" | "stats-chart" | "pencil" | 
+                "add" | "send" | "arrow-back" | "people" | "create";
+
+type FlattenedMessage = {
+  id: string;
+  type: 'header' | 'message';
+  data: string | Message;
+};
+
+export default function GroupDetails({ route, navigation }: GroupDetailsProps) {
   const { groupId } = route.params;
   const { user } = useUser();
-  const [group, setGroup] = useState<any>({ name: "", members: [], image: null });
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
-  const [showAvailability, setShowAvailability] = useState(false);
-  const [selectedDates, setSelectedDates] = useState({});
-  const [groupAvailability, setGroupAvailability] = useState({});
-  const [overlappingDates, setOverlappingDates] = useState<string[]>([]);
-  const [groupImage, setGroupImage] = useState<string | null>(null);
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [showPlusModal, setShowPlusModal] = useState(false);
+  
+  // State management with proper types
+  const [group, setGroup] = useState<Group>({ 
+    id: "", 
+    name: "", 
+    members: [], 
+    image: null 
+  });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [message, setMessage] = useState<string>("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [showAvailability, setShowAvailability] = useState<boolean>(false);
+  const [showPlusModal, setShowPlusModal] = useState<boolean>(false);
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [selectedStartDate, setSelectedStartDate] = useState<Date>(new Date());
+  const [selectedEndDate, setSelectedEndDate] = useState<Date>(new Date());
+  const [availabilityTitle, setAvailabilityTitle] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"view" | "share" | "approve">("view");
+  
+  // Refs with proper types
   const flatListRef = useRef<FlatList>(null);
+  const inputRef = useRef<TextInput>(null);
+  const isScrolling = useRef<boolean>(false);
+  const shouldScrollToEnd = useRef<boolean>(true);
+  const isInitialLoad = useRef<boolean>(true);
+  const keyboardHeight = useRef<number>(0);
+
+  const plusModalOptions: { icon: IconName; text: string }[] = [
+    { icon: "calendar", text: "Share Availability" },
+    { icon: "image", text: "Share Image" },
+    { icon: "document-text", text: "Share Document" },
+    { icon: "stats-chart", text: "Create Poll" },
+    { icon: "pencil", text: "Create Event" }
+  ];
+
+  const formatMessageDate = (timestamp: string): string => {
+    const messageDate = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (messageDate.toDateString() === today.toDateString()) {
+      return "Today";
+    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+      return "Yesterday";
+    } else {
+      return messageDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+  };
+
+  const formatMessageTime = (timestamp: string): string => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  const scrollToBottom = useCallback((animated = true) => {
+    if (!isScrolling.current && flatListRef.current && messages.length > 0) {
+      isScrolling.current = true;
+      flatListRef.current.scrollToEnd({ animated });
+      setTimeout(() => {
+        isScrolling.current = false;
+      }, 300);
+    }
+  }, [messages]);
+
+  const handleScroll = useCallback(({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
+    const paddingToBottom = 50;
+    shouldScrollToEnd.current = 
+      contentOffset.y + layoutMeasurement.height >= 
+      contentSize.height - paddingToBottom;
+  }, []);
 
   useEffect(() => {
     const fetchGroupDetails = async () => {
@@ -42,14 +160,27 @@ export default function GroupDetails({ route, navigation }: any) {
         const groupSnap = await getDoc(groupRef);
 
         if (groupSnap.exists()) {
-          setGroup({ id: groupSnap.id, ...groupSnap.data() });
-          setMessages(groupSnap.data().messages || []);
-          setGroupImage(groupSnap.data().image || null);
+          const groupData = groupSnap.data();
+          setGroup({ 
+            id: groupSnap.id, 
+            name: groupData.name || "",
+            members: groupData.members || [],
+            image: groupData.image || null,
+            availability: groupData.availability || []
+          });
+          const initialMessages = groupData.messages || [];
+          setMessages(initialMessages);
+          
+          setTimeout(() => {
+            shouldScrollToEnd.current = true;
+            scrollToBottom(false);
+          }, 300);
         } else {
           Alert.alert("Error", "Group not found.");
           navigation.goBack();
         }
       } catch (error) {
+        console.error("Error fetching group details:", error);
         Alert.alert("Error", "Failed to fetch group details.");
       } finally {
         setLoading(false);
@@ -57,184 +188,148 @@ export default function GroupDetails({ route, navigation }: any) {
     };
 
     fetchGroupDetails();
-  }, [groupId]);
+  }, [groupId, navigation, scrollToBottom]);
+
+  useEffect(() => {
+    if (!isInitialLoad.current && shouldScrollToEnd.current) {
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    isInitialLoad.current = false;
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      (e) => {
+        keyboardHeight.current = e.endCoordinates.height;
+        if (shouldScrollToEnd.current) {
+          scrollToBottom();
+        }
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        keyboardHeight.current = 0;
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, [scrollToBottom]);
 
   const handleSendMessage = async () => {
     if (!message.trim()) return;
 
     try {
       const groupRef = doc(db, "groups", groupId);
-      const newMessage = {
-        id: Date.now().toString(),
+      const newMessage: Message = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         text: message,
-        sender: user.email,
+        sender: user?.email || "unknown",
         timestamp: new Date().toISOString(),
+        type: "text"
       };
 
       await updateDoc(groupRef, {
         messages: arrayUnion(newMessage),
       });
 
-      setMessages((prev) => [...prev, newMessage]);
+      setMessages(prev => [...prev, newMessage]);
       setMessage("");
-      scrollToBottom();
+      shouldScrollToEnd.current = true;
+      
+      setTimeout(() => {
+        scrollToBottom();
+      }, 150);
     } catch (error) {
+      console.error("Error sending message:", error);
       Alert.alert("Error", "Failed to send message.");
     }
   };
 
-  const handleShareAvailability = async () => {
-    if (Object.keys(selectedDates).length === 0) {
-      Alert.alert("Error", "Please select at least one date.");
-      return;
-    }
+  const getFlattenedMessages = useCallback((): FlattenedMessage[] => {
+    const flattened: FlattenedMessage[] = [];
+    let currentDate = '';
 
-    try {
-      const groupRef = doc(db, "groups", groupId);
-      const availabilityMessage = {
-        id: Date.now().toString(),
-        type: "availability",
-        sender: user.email,
-        dates: selectedDates,
-        timestamp: new Date().toISOString(),
-      };
-
-      await updateDoc(groupRef, {
-        messages: arrayUnion(availabilityMessage),
-      });
-
-      setMessages((prev) => [...prev, availabilityMessage]);
-      setSelectedDates({});
-      setShowAvailability(false);
-      Alert.alert("Success", "Availability shared!");
-    } catch (error) {
-      Alert.alert("Error", "Failed to share availability.");
-    }
-  };
-
-  const syncGroupCalendars = async () => {
-    try {
-      const groupRef = doc(db, "groups", groupId);
-      const groupSnap = await getDoc(groupRef);
-
-      if (groupSnap.exists()) {
-        const members = groupSnap.data().members || [];
-        const availability: Record<string, any> = {};
-
-        for (const member of members) {
-          const userRef = doc(db, "users", member);
-          const userSnap = await getDoc(userRef);
-
-          if (userSnap.exists() && userSnap.data().availability) {
-            availability[member] = userSnap.data().availability;
-          }
-        }
-
-        setGroupAvailability(availability);
-        setOverlappingDates(findOverlappingDates(availability));
+    messages.forEach((message, index) => {
+      const messageDate = formatMessageDate(message.timestamp);
+      
+      if (messageDate !== currentDate) {
+        flattened.push({
+          id: `header-${messageDate}-${index}`,
+          type: 'header',
+          data: messageDate
+        });
+        currentDate = messageDate;
       }
-    } catch (error) {
-      Alert.alert("Error", "Failed to sync group calendars.");
-    }
-  };
-
-  const findOverlappingDates = (availability: Record<string, any>) => {
-    const memberAvailabilities = Object.values(availability);
-    if (memberAvailabilities.length === 0) return [];
-
-    const dateCounts: Record<string, number> = {};
-
-    memberAvailabilities.forEach((availability) => {
-      availability.forEach((event: any) => {
-        const date = new Date(event.startDate).toISOString().split("T")[0];
-        dateCounts[date] = (dateCounts[date] || 0) + 1;
+      
+      flattened.push({
+        id: message.id || `message-${index}-${Date.now()}`,
+        type: 'message',
+        data: message
       });
     });
+    
+    return flattened;
+  }, [messages]);
 
-    const overlappingDates = Object.keys(dateCounts).filter(
-      (date) => dateCounts[date] === memberAvailabilities.length
-    );
-
-    return overlappingDates;
-  };
-
-  const scrollToBottom = () => {
-    flatListRef.current?.scrollToEnd({ animated: true });
-  };
-
-  const handleScroll = (event: any) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    const contentHeight = event.nativeEvent.contentSize.height;
-    const layoutHeight = event.nativeEvent.layoutMeasurement.height;
-
-    if (offsetY + layoutHeight < contentHeight - 50) {
-      setShowScrollButton(true);
-    } else {
-      setShowScrollButton(false);
-    }
-  };
-
-  const formatMessageTime = (timestamp: string) => {
-    const messageDate = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (messageDate.toDateString() === today.toDateString()) {
-      return `Today, ${messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    } else if (messageDate.toDateString() === yesterday.toDateString()) {
-      return `Yesterday, ${messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    } else {
-      return `${messageDate.toLocaleDateString()}, ${messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    }
-  };
-
-  const renderOverlappingDates = () => {
-    if (overlappingDates.length === 0) {
-      return <Text style={globalStyles.noDatesText}>No overlapping dates found.</Text>;
-    }
-
-    return (
-      <View style={globalStyles.overlappingDatesContainer}>
-        <Text style={globalStyles.overlappingDatesTitle}>Overlapping Dates:</Text>
-        {overlappingDates.map((date, index) => (
-          <Text key={index} style={globalStyles.overlappingDate}>
-            {new Date(date).toLocaleDateString()}
-          </Text>
-        ))}
-      </View>
-    );
-  };
-
-  const renderMessage = ({ item }: any) => {
-    if (item.type === "availability") {
+  const renderItem = useCallback(({ item }: { item: FlattenedMessage }) => {
+    if (item.type === 'header') {
       return (
-        <TouchableOpacity
-          style={globalStyles.availabilityMessage}
-          onPress={() => setShowAvailability(true)}
-        >
-          <Ionicons name="calendar" size={20} color="#5967EB" />
-          <Text style={globalStyles.availabilityMessageText}>
-            {item.sender} shared their availability.
-          </Text>
-        </TouchableOpacity>
+        <View style={globalStyles.dateHeaderContainer}>
+          <View style={globalStyles.dateHeaderBackground}>
+            <Text style={globalStyles.dateHeaderText}>{item.data as string}</Text>
+          </View>
+        </View>
+      );
+    }
+
+    const message = item.data as Message;
+    if (message.type === "availability") {
+      return (
+        <View style={globalStyles.availabilityContainer}>
+          <TouchableOpacity
+            style={globalStyles.availabilityMessage}
+            onPress={() => {
+              setShowAvailability(true);
+              setViewMode("view");
+            }}
+          >
+            <Ionicons 
+              name="calendar" 
+              size={20} 
+              color="#5967EB" 
+              style={globalStyles.calendarIcon} 
+            />
+            <Text style={globalStyles.availabilityMessageText}>
+              {message.sender} shared their availability
+            </Text>
+          </TouchableOpacity>
+        </View>
       );
     }
 
     return (
       <View
         style={[
-          globalStyles.messageContainer,
-          item.sender === user.email ? globalStyles.myMessage : globalStyles.otherMessage,
+          globalStyles.messageContainer, 
+          message.sender === user?.email ? globalStyles.myMessage : globalStyles.otherMessage,
         ]}
       >
-        <Text style={globalStyles.messageText}>{item.text}</Text>
+        <Text style={globalStyles.messageText}>{message.text}</Text>
         <Text style={globalStyles.messageTime}>
-          {formatMessageTime(item.timestamp)}
+          {formatMessageTime(message.timestamp)}
         </Text>
       </View>
     );
-  };
+  }, [user?.email]);
 
   if (loading) {
     return (
@@ -245,175 +340,170 @@ export default function GroupDetails({ route, navigation }: any) {
     );
   }
 
+  const flattenedMessages = getFlattenedMessages();
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#100f0f" }}>
+    <SafeAreaView style={globalStyles.groupChatContainer}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        <View style={globalStyles.groupChatContainer}>
-          {/* Header with Group Name, Image, and Icons */}
-          <View style={globalStyles.chatHeader}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Ionicons name="arrow-back" size={24} color="#5967EB" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => navigation.navigate("GroupInfo", { groupId })}
-              style={globalStyles.groupInfoButton}
-            >
-              {groupImage ? (
-                <Image source={{ uri: groupImage }} style={globalStyles.smallGroupImage} />
-              ) : (
-                <Ionicons name="people" size={24} color="#5967EB" />
-              )}
-              <Text style={globalStyles.groupName} numberOfLines={1} ellipsizeMode="tail">
-                {group.name}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowAvailability(true)}>
-              <Ionicons name="calendar" size={24} color="#5967EB" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Chat Section */}
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
-            contentContainerStyle={globalStyles.chatContainer}
-            style={{ flex: 1 }}
-            onContentSizeChange={() => scrollToBottom()}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-          />
-
-          {/* Scroll to Bottom Button */}
-          {showScrollButton && (
-            <TouchableOpacity
-              style={globalStyles.scrollToBottomButton}
-              onPress={scrollToBottom}
-            >
-              <Ionicons name="arrow-down" size={24} color="#fff" />
-            </TouchableOpacity>
-          )}
-
-          {/* Message Input */}
-          <View style={globalStyles.inputContainer}>
-            <TouchableOpacity
-              style={{ padding: 8 }}
-              onPress={() => setShowPlusModal(true)}
-            >
-              <Ionicons name="add" size={24} color="#5967EB" />
-            </TouchableOpacity>
-            <TextInput
-              style={globalStyles.chatInput}
-              placeholder="Type a message..."
-              value={message}
-              onChangeText={setMessage}
-              placeholderTextColor="#888"
-            />
-            <TouchableOpacity style={{ padding: 8 }} onPress={handleSendMessage}>
-              <Ionicons name="send" size={24} color="#5967EB" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Plus Button Modal */}
-          <Modal
-            visible={showPlusModal}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setShowPlusModal(false)}
+        {/* Header Section */}
+        <View style={globalStyles.chatHeader}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={globalStyles.headerButton}
           >
-            <View style={globalStyles.modalOverlay}>
-              <View style={globalStyles.plusModalContent}>
-                <TouchableOpacity
-                  style={globalStyles.modalOption}
-                  onPress={() => {
-                    setShowPlusModal(false);
-                    setShowAvailability(true);
-                  }}
-                >
-                  <Ionicons name="calendar" size={24} color="#5967EB" />
-                  <Text style={globalStyles.modalOptionText}>Share Availability</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={globalStyles.modalOption}
-                  onPress={() => {
-                    setShowPlusModal(false);
-                    Alert.alert("Info", "Share image functionality to be implemented.");
-                  }}
-                >
-                  <Ionicons name="image" size={24} color="#5967EB" />
-                  <Text style={globalStyles.modalOptionText}>Share Image</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={globalStyles.modalOption}
-                  onPress={() => {
-                    setShowPlusModal(false);
-                    Alert.alert("Info", "Share document functionality to be implemented.");
-                  }}
-                >
-                  <Ionicons name="document" size={24} color="#5967EB" />
-                  <Text style={globalStyles.modalOptionText}>Share Document</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={globalStyles.modalOption}
-                  onPress={() => {
-                    setShowPlusModal(false);
-                    Alert.alert("Info", "Create poll functionality to be implemented.");
-                  }}
-                >
-                  <Ionicons name="podium" size={24} color="#5967EB" />
-                  <Text style={globalStyles.modalOptionText}>Create Poll</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={globalStyles.modalOption}
-                  onPress={() => {
-                    setShowPlusModal(false);
-                    Alert.alert("Info", "Create event functionality to be implemented.");
-                  }}
-                >
-                  <Ionicons name="create" size={24} color="#5967EB" />
-                  <Text style={globalStyles.modalOptionText}>Create Event</Text>
-                </TouchableOpacity>
-                <View style={globalStyles.modalFooter}>
-                  <ModalButton 
-                    type="cancel" 
-                    onPress={() => setShowPlusModal(false)}
-                  >
-                    Close
-                  </ModalButton>
-                </View>
-              </View>
-            </View>
-          </Modal>
+            <Ionicons name="arrow-back" size={24} color="#5967EB" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={() => navigation.navigate("GroupInfo", { groupId })}
+            style={globalStyles.groupInfoButton}
+          >
+            {group.image ? (
+              <Image 
+                source={{ uri: group.image }} 
+                style={globalStyles.smallGroupImage} 
+              />
+            ) : (
+              <Ionicons 
+                name="people" 
+                size={24} 
+                color="#5967EB" 
+                style={globalStyles.groupIcon} 
+              />
+            )}
+            <Text style={globalStyles.groupName} numberOfLines={1}>
+              {group.name}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            onPress={() => {
+              setShowAvailability(true);
+              setViewMode("view");
+            }}
+            style={globalStyles.headerButton}
+          >
+            <Ionicons name="calendar" size={24} color="#5967EB" />
+          </TouchableOpacity>
+        </View>
 
-          {/* Overlapping Dates Modal */}
-          {showAvailability && (
-            <View style={globalStyles.modalOverlay}>
-              <View style={globalStyles.modalContent}>
-                <Text style={globalStyles.modalTitle}>Group Availability</Text>
-                {renderOverlappingDates()}
-                <View style={globalStyles.modalFooter}>
-                  <ModalButton 
-                    type="cancel" 
-                    onPress={() => setShowAvailability(false)}
-                  >
-                    Close
-                  </ModalButton>
-                  <ModalButton 
-                    onPress={syncGroupCalendars}
-                  >
-                    Sync Calendars
-                  </ModalButton>
-                </View>
-              </View>
-            </View>
-          )}
+        {/* Chat Section */}
+        <FlatList
+          ref={flatListRef}
+          data={flattenedMessages}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            globalStyles.chatContainer,
+            { paddingBottom: 20 }
+          ]}
+          style={{ flex: 1 }}
+          onContentSizeChange={() => {
+            if (shouldScrollToEnd.current) {
+              scrollToBottom(false);
+            }
+          }}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0,
+            autoscrollToTopThreshold: 50
+          }}
+          onScrollToIndexFailed={() => {
+            scrollToBottom(false);
+          }}
+          inverted={false}
+          removeClippedSubviews={false}
+          initialNumToRender={20}
+          maxToRenderPerBatch={10}
+          windowSize={21}
+          updateCellsBatchingPeriod={50}
+          ListFooterComponent={<View style={{ height: 20 }} />}
+        />
+
+        {/* Scroll to bottom button */}
+        <TouchableOpacity
+          style={globalStyles.scrollToBottomButton}
+          onPress={() => scrollToBottom()}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-down" size={20} color="#fff" />
+        </TouchableOpacity>
+
+        {/* Input Section */}
+        <View style={globalStyles.inputContainer}>
+          <TouchableOpacity
+            style={globalStyles.plusButton}
+            onPress={() => setShowPlusModal(true)}
+          >
+            <Ionicons name="add" size={28} color="#5967EB" />
+          </TouchableOpacity>
+          
+          <TextInput
+            ref={inputRef}
+            style={globalStyles.chatInput}
+            placeholder="Type a message..."
+            placeholderTextColor="#888"
+            value={message}
+            onChangeText={setMessage}
+            multiline
+            blurOnSubmit={false}
+            onSubmitEditing={handleSendMessage}
+          />
+          
+          <TouchableOpacity 
+            style={globalStyles.sendButton}
+            onPress={handleSendMessage}
+            disabled={!message.trim()}
+          >
+            <Ionicons 
+              name="send" 
+              size={28} 
+              color={message.trim() ? "#5967EB" : "#888"} 
+            />
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Plus Options Modal */}
+      <Modal
+        visible={showPlusModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPlusModal(false)}
+      >
+        <TouchableOpacity 
+          style={globalStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPlusModal(false)}
+        >
+          <View style={globalStyles.plusModalContent}>
+            {plusModalOptions.map((item, index) => (
+              <TouchableOpacity
+                key={`option-${index}`}
+                style={globalStyles.modalOption}
+                onPress={() => {
+                  setShowPlusModal(false);
+                  if (item.icon === "calendar") {
+                    setViewMode("share");
+                    setShowDatePicker(true);
+                  } else {
+                    Alert.alert("Info", `${item.text} functionality to be implemented.`);
+                  }
+                }}
+              >
+                <Ionicons name={item.icon} size={24} color="#5967EB" />
+                <Text style={globalStyles.modalOptionText}>{item.text}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }

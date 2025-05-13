@@ -1,4 +1,4 @@
-import { StyleSheet, TouchableOpacity, Text, View } from "react-native";
+import { StyleSheet, TouchableOpacity, Text, View, ViewStyle, StyleProp } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -265,6 +265,8 @@ export const globalStyles = StyleSheet.create({
   },
   modalHeader: {
     marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   modalTitle: {
     fontSize: 22,
@@ -276,6 +278,7 @@ export const globalStyles = StyleSheet.create({
     fontSize: 14,
     color: "rgba(255, 255, 255, 0.7)",
     lineHeight: 20,
+    marginBottom: 5,
   },
   modalBody: {
     marginBottom: 24,
@@ -284,7 +287,7 @@ export const globalStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center", 
     gap: 12,
-    marginTop: 0,
+    marginTop: 20,
   },
   modalButtonContainer: {
     borderRadius: 10,
@@ -593,15 +596,18 @@ export const globalStyles = StyleSheet.create({
     borderColor: "#5967EB",
   },
   chatContainer: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 16,
+    paddingBottom: 20,
   },
   messageContainer: {
     maxWidth: "80%",
     padding: 12,
+    paddingTop: 6,
+    paddingBottom: 6,
     borderRadius: 12,
-    marginBottom: 8,
-  },
+    marginVertical: 3,
+    },
   myMessage: {
     alignSelf: "flex-end",
     backgroundColor: "#594DA8",
@@ -620,27 +626,302 @@ export const globalStyles = StyleSheet.create({
     marginTop: 4,
     textAlign: "right",
   },
-  availabilityMessage: {
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "rgba(89, 77, 168, 0.3)",
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "rgba(89, 77, 168, 0.5)",
-  },
+// message date styles
+dateHeaderContainer: {
+  alignItems: 'center',
+  marginVertical: 16,
+},
+dateHeaderBackground: {
+  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  borderRadius: 20,
+  paddingHorizontal: 16,
+  paddingVertical: 6,
+},
+dateHeaderText: {
+  color: '#fff',
+  fontSize: 14,
+  fontWeight: '500',
+},
+dateSection: {
+  marginBottom: 16,
+},
+messagesList: {
+  paddingHorizontal: 16,
+},
+availabilityContainer: {
+  alignItems: 'center',
+  marginVertical: 8,
+},
+calendarIcon: {
+  marginRight: 8,
+},
+headerButton: {
+  padding: 8,
+},
+plusButton: {
+  padding: 8,
+  marginRight: 8,
+},
+sendButton: {
+  padding: 8,
+  marginLeft: 8,
+},
+availabilityMessage: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  padding: 10,
+  backgroundColor: '#E8EBFF',
+  borderRadius: 20,
+},
   availabilityMessageText: {
+    color: '#5967EB',
+    fontWeight: '500',
+  },
+  availabilityModalContent: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  availabilityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  availabilityTabs: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 20,
+  },
+  availabilityTab: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  activeTab: {
+    backgroundColor: '#594DA8',
+  },
+  tabText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  activeTabText: {
+    color: '#fff',
+  },
+  timelineContainer: {
+    marginBottom: 20,
+  },
+  timelineHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  timelineTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  timelineSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
-    color: "#fff",
-    marginLeft: 8,
+  },
+  timeline: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  timeSlot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  timeSlotUser: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#5967EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  timeSlotUserText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  timeSlotInfo: {
+    flex: 1,
+  },
+  timeSlotTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  timeSlotTime: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+  },
+  timeSlotStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 12,
+  },
+  timeSlotStatusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  availabilityList: {
+    paddingBottom: 20,
+  },
+  availabilityUser: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+  },
+  dateBlock: {
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EEE',
+  },
+  dateBlockTitle: {
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  dateBlockText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  statusBadge: {
+    marginTop: 5,
+    padding: 4,
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: 'bold',
+    alignSelf: 'flex-start',
+  },
+  pendingBadge: {
+    backgroundColor: '#FFF3CD',
+    color: '#856404',
+  },
+  approvedBadge: {
+    backgroundColor: '#D4EDDA',
+    color: '#155724',
+  },
+  approveButton: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#5967EB',
+    borderRadius: 6,
+    alignSelf: 'flex-end',
+  },
+  approveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  datePickerContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    datePickerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    datePickerLabel: {
+      flex: 1,
+      color: '#fff',
+      fontWeight: '600',
+    },
+    datePickerValue: {
+      color: '#fff',
+      fontWeight: '600',
+    },
+    datePickerButton: {
+      padding: 8,
+      backgroundColor: 'rgba(89, 77, 168, 0.3)',
+      borderRadius: 8,
+      marginLeft: 12,
+    },
+    availabilityTitleInput: {
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      borderRadius: 12,
+      padding: 16,
+      color: '#fff',
+      fontSize: 16,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    suggestedTimesContainer: {
+      marginBottom: 20,
+    },
+    suggestedTime: {
+      backgroundColor: 'rgba(89, 77, 168, 0.3)',
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: 'rgba(89, 77, 168, 0.5)',
+    },
+    suggestedTimeText: {
+      color: '#fff',
+      fontSize: 14,
+    },
+    suggestedTimeHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    suggestedTimeTitle: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    suggestedTimeCount: {
+      color: '#5967EB',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    emptyStateText: {
+      color: 'rgba(255, 255, 255, 0.7)',
+      fontSize: 16,
+      textAlign: 'center',
+      marginTop: 10,
+    },
+  availabilityItem: {
+    marginBottom: 15,
+    padding: 15,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 10,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)",
@@ -897,9 +1178,10 @@ export const eventStyles = StyleSheet.create({
     textAlignVertical: "top",
   },
   emptyState: {
-    alignItems: "center",
+    flex: 1,
     justifyContent: "center",
-    padding: 30,
+    alignItems: "center",
+    padding: 20,
   },
   emptyText: {
     color: "#fff",
@@ -914,7 +1196,44 @@ export const eventStyles = StyleSheet.create({
   },
 });
 
-export const GroupButton = ({ children, onPress, icon, style = {} }) => {
+
+// Type definitions for the components
+interface GroupButtonProps {
+  children: React.ReactNode;
+  onPress: () => void;
+  icon?: keyof typeof Ionicons.glyphMap;
+  style?: StyleProp<ViewStyle>;
+}
+
+interface GroupOptionButtonProps {
+  children: React.ReactNode;
+  onPress: () => void;
+  icon?: keyof typeof Ionicons.glyphMap;
+  danger?: boolean;
+  style?: StyleProp<ViewStyle>;
+}
+
+interface GradientButtonProps {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+}
+
+type ModalButtonType = "confirm" | "cancel";
+
+interface ModalButtonProps {
+  children: React.ReactNode;
+  onPress: () => void;
+  type?: ModalButtonType;
+  style?: StyleProp<ViewStyle>;
+}
+
+interface EditProfileProps {
+  navigation: any; // to to be replaced with proper navigation type
+}
+
+// components 
+export const GroupButton: React.FC<GroupButtonProps> = ({ children, onPress, icon, style = {} }) => {
   return (
     <TouchableOpacity 
       onPress={onPress} 
@@ -926,7 +1245,13 @@ export const GroupButton = ({ children, onPress, icon, style = {} }) => {
   );
 };
 
-export const GroupOptionButton = ({ children, onPress, icon, danger = false, style = {} }) => {
+export const GroupOptionButton: React.FC<GroupOptionButtonProps> = ({ 
+  children, 
+  onPress, 
+  icon, 
+  danger = false, 
+  style = {} 
+}) => {
   return (
     <TouchableOpacity 
       onPress={onPress} 
@@ -947,7 +1272,7 @@ export const GroupOptionButton = ({ children, onPress, icon, danger = false, sty
   );
 };
 
-export const GradientButton = ({ children, onPress, style = {} }) => {
+export const GradientButton: React.FC<GradientButtonProps> = ({ children, onPress, style = {} }) => {
   return (
     <TouchableOpacity onPress={onPress} style={[globalStyles.buttonContainer, style]}>
       <LinearGradient
@@ -968,7 +1293,12 @@ export const GradientButton = ({ children, onPress, style = {} }) => {
   );
 };
 
-export const ModalButton = ({ children, onPress, type = "confirm", style = {} }) => {
+export const ModalButton: React.FC<ModalButtonProps> = ({ 
+  children, 
+  onPress, 
+  type = "confirm", 
+  style = {} 
+}) => {
   return (
     <TouchableOpacity
       onPress={onPress}

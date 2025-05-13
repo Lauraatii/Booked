@@ -17,9 +17,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../../../firebaseConfig';
 import { globalStyles, GradientButton } from '../../styles/globalStyles';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../../App'; // Adjust this import to your navigation types
 
-const EditProfile = ({ navigation }) => {
-  const [userData, setUserData] = useState({
+// Define types for your navigation and user data
+type EditProfileNavigationProp = NativeStackNavigationProp<RootStackParamList, 'EditProfile'>;
+
+interface UserData {
+  name: string;
+  bio: string;
+  birthday: string;
+  interests: string[];
+  profilePicture: string | null;
+  status: string;
+}
+
+interface EditProfileProps {
+  navigation: EditProfileNavigationProp;
+}
+
+const EditProfile: React.FC<EditProfileProps> = ({ navigation }) => {
+  const [userData, setUserData] = useState<UserData>({
     name: '',
     bio: '',
     birthday: '',
@@ -27,10 +45,10 @@ const EditProfile = ({ navigation }) => {
     profilePicture: null,
     status: 'Available'
   });
-  const [imageUri, setImageUri] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [imageUri, setImageUri] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isFetching, setIsFetching] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', fetchUserData);
@@ -39,26 +57,27 @@ const EditProfile = ({ navigation }) => {
   }, [navigation]);
 
   const fetchUserData = async () => {
-    if (!auth.currentUser) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
       Alert.alert('Error', 'No user logged in');
       setIsFetching(false);
       return;
     }
 
     const db = getFirestore();
-    const userRef = doc(db, 'users', auth.currentUser.uid);
+    const userRef = doc(db, 'users', currentUser.uid);
 
     try {
       const userDoc = await getDoc(userRef);
       if (userDoc.exists()) {
         const data = userDoc.data();
         setUserData({
-          name: data.name || '',
-          bio: data.bio || '',
-          birthday: data.birthday || '',
-          interests: data.interests || [],
-          profilePicture: data.profilePicture || null,
-          status: data.status || 'Available'
+          name: data?.name || '',
+          bio: data?.bio || '',
+          birthday: data?.birthday || '',
+          interests: data?.interests || [],
+          profilePicture: data?.profilePicture || null,
+          status: data?.status || 'Available'
         });
       } else {
         Alert.alert('No user data found');
@@ -93,6 +112,12 @@ const EditProfile = ({ navigation }) => {
   };
 
   const handleSave = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert('Error', 'No user logged in');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -103,7 +128,7 @@ const EditProfile = ({ navigation }) => {
       }
 
       const db = getFirestore();
-      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userRef, {
         name: userData.name,
         bio: userData.bio,
@@ -122,15 +147,15 @@ const EditProfile = ({ navigation }) => {
     }
   };
 
-  const uploadImage = async (uri) => {
+  const uploadImage = async (uri: string): Promise<string> => {
     try {
       const blob = await (await fetch(uri)).blob();
       const storage = getStorage();
-      const imageName = `profile_${auth.currentUser.uid}_${Date.now()}`;
+      const imageName = `profile_${auth.currentUser?.uid}_${Date.now()}`;
       const imageRef = ref(storage, `profilePictures/${imageName}`);
 
       await uploadBytes(imageRef, blob);
-      return getDownloadURL(imageRef);
+      return await getDownloadURL(imageRef);
     } catch (error) {
       console.error('Error uploading image:', error);
       throw error;
